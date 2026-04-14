@@ -15,6 +15,7 @@
  * description_original is never rendered — only description_display (SKILLS.md §16).
  */
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Navbar } from "@/components/navbar";
@@ -31,6 +32,13 @@ export default function TaskDetailPage() {
 
   const { data: issue, isLoading, error, notFound } = useIssue(id);
   const { isBookmarked, toggle: toggleBookmark } = useBookmark(id);
+
+  // Defer all rendering to the client to prevent server/client HTML mismatch.
+  // This component relies on client-only hooks (useParams, useIssue, useBookmark)
+  // that produce different output on the server.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (isLoading) {
