@@ -5,13 +5,17 @@
  * only. Fill and text stay neutral so the design stays clean while
  * contribution types remain identifiable at a glance.
  *
- * @param type    - Contribution type key (e.g. "design", "documentation").
- *                  Determines the border color.
- * @param label   - Display text. Falls back to a formatted version of `type`
- *                  if not provided.
- * @param size    - "sm" (default) for grid cards, "md" for filter bar pills.
- * @param selected - Renders the selected state (slightly elevated border opacity).
- * @param onClick  - Makes the tag interactive (filter bar usage).
+ * @param type       - Contribution type key (e.g. "design", "documentation").
+ *                     Determines the border color.
+ * @param label      - Display text. Falls back to a formatted version of `type`
+ *                     if not provided.
+ * @param size       - "sm" (default) for grid cards, "md" for filter bar pills.
+ * @param selected   - Renders the selected state.
+ * @param onClick    - Makes the tag interactive (filter bar usage).
+ * @param filterMode - When true, uses neutral border by default and
+ *                     var(--color-cta-primary) only when selected.
+ *                     Individual type colors are suppressed.
+ *                     Defaults to false so marquee/card tags are unaffected.
  */
 
 import { getTagColor, formatContributionType } from "@/lib/utils";
@@ -23,6 +27,7 @@ export interface TagProps {
   selected?: boolean;
   onClick?: () => void;
   className?: string;
+  filterMode?: boolean;
 }
 
 // All 13 contribution types — used by the marquee and filter bar.
@@ -49,14 +54,20 @@ export function Tag({
   selected = false,
   onClick,
   className,
+  filterMode = false,
 }: TagProps) {
-  const borderColor = getTagColor(type);
   const displayLabel = label ?? formatContributionType(type);
 
   const sizeStyles =
     size === "md"
       ? { fontSize: "13px", padding: "5px 14px" }
       : { fontSize: "12px", padding: "3px 10px" };
+
+  const borderColor = filterMode
+    ? selected
+      ? "var(--color-cta-primary)"
+      : "var(--color-border)"
+    : getTagColor(type);
 
   const baseStyle: React.CSSProperties = {
     display: "inline-flex",
@@ -69,10 +80,9 @@ export function Tag({
     fontWeight: 500,
     lineHeight: 1.4,
     whiteSpace: "nowrap",
-    transition: "opacity 150ms ease, transform 150ms ease",
+    transition: "border-color 150ms ease",
     cursor: onClick ? "pointer" : "default",
-    // Selected state: elevated opacity on the border to indicate active filter
-    opacity: selected ? 1 : 0.85,
+    opacity: filterMode ? 1 : selected ? 1 : 0.85,
     userSelect: "none",
     ...sizeStyles,
   };

@@ -91,6 +91,7 @@ export function FilterBar({ activeTypes, onChange }: FilterBarProps) {
               label={formatContributionType(type)}
               size="md"
               selected={isSelected}
+              filterMode={true}
               onClick={() => handleType(type)}
             />
           </div>
