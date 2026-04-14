@@ -25,12 +25,12 @@ interface UseDarkModeResult {
  * @returns Current theme and a toggle function
  */
 export function useDarkMode(): UseDarkModeResult {
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = useState<Theme>("dark");
 
   useEffect(() => {
     // Read saved preference on mount — localStorage is only available in the browser.
     const saved = localStorage.getItem("nocos-theme") as Theme | null;
-    const initial = saved ?? "light";
+    const initial = saved ?? "dark";
     setTheme(initial);
     applyTheme(initial);
   }, []);
