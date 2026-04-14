@@ -1,0 +1,17 @@
+# railway.toml
+# Railway deployment configuration for the Nocos FastAPI backend.
+# Railway reads this file automatically when deploying from the GitHub repo.
+# Set the Railway "Root Directory" to /backend in the project settings.
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+# Railway injects $PORT — uvicorn must bind to it (not a hardcoded port).
+startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+# Health check against the /api/v1/health endpoint.
+# Railway will restart the service if this fails.
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
