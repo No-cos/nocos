@@ -106,7 +106,7 @@ def upgrade() -> None:
             id                    UUID                     NOT NULL PRIMARY KEY,
             project_id            UUID                     NOT NULL
                                       REFERENCES projects (id) ON DELETE CASCADE,
-            github_issue_id       INTEGER UNIQUE,
+            github_issue_id       BIGINT UNIQUE,
             github_issue_number   INTEGER,
             title                 VARCHAR(500)             NOT NULL,
             description_original  TEXT,

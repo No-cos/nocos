@@ -61,11 +61,7 @@ def trigger_sync(body: Optional[SyncTriggerBody] = None) -> dict:
     )
 
     # Pass 1: scrape new issues (and seed new projects if repos were provided)
-    try:
-        scrape_stats = run_scrape(extra_repos, SessionLocal)
-    except Exception as exc:
-        logger.exception("Sync trigger scrape pass failed")
-        return {"success": False, "error": type(exc).__name__, "detail": str(exc)}
+    scrape_stats = run_scrape(extra_repos, SessionLocal)
 
     # Pass 2: freshen existing tasks / projects
     run_sync(SessionLocal)

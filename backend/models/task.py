@@ -7,6 +7,7 @@
 import uuid
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     DateTime,
@@ -53,7 +54,7 @@ class Task(Base):
     )
 
     # Null for manually posted tasks — only scraped tasks have a GitHub issue ID
-    github_issue_id = Column(Integer, nullable=True, unique=True)
+    github_issue_id = Column(BigInteger, nullable=True, unique=True)
     github_issue_number = Column(Integer, nullable=True)
 
     title = Column(String(500), nullable=False)
