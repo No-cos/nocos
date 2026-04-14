@@ -25,6 +25,7 @@ from models.task import Task
 from services.github_client import github_client, RateLimitLowError
 from services.issue_finder.enricher import should_regenerate_description, enrich_issue
 from services.issue_finder.filters import MAX_ISSUE_AGE_DAYS
+from services.cache import app_cache
 
 logger = logging.getLogger(__name__)
 
@@ -186,6 +187,8 @@ def _sync_single_task(task: Task, session: Session) -> None:
         task.description_display = enriched["description_display"]
         task.is_ai_generated = enriched["is_ai_generated"]
         session.add(task)
+        # Invalidate the cached detail response so the next request gets fresh data
+        app_cache.invalidate_issue(str(task.id))
 
 
 def _sync_project(project: Project, session: Session) -> None:
@@ -243,6 +246,8 @@ def _sync_project(project: Project, session: Session) -> None:
             project.activity_score = score
             project.last_commit_date = last_commit_date
             session.add(project)
+            # Invalidate cached project so the next request sees updated activity
+            app_cache.invalidate_project(project.github_owner, project.github_repo)
         except ValueError:
             logger.warning(
                 "Could not parse last commit date during sync",

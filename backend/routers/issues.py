@@ -15,6 +15,7 @@ from db import get_db
 from models.task import Task
 from models.project import Project
 from schemas.issue import IssueCreateRequest
+from services.cache import app_cache, TTL_ISSUE_DETAIL, TTL_ISSUE_LIST
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +153,10 @@ def get_issue(issue_id: str, db: Session = Depends(get_db)) -> dict:
     """
     Get a single active issue with full project details.
 
+    Checks the Redis cache first (TTL 30 min) before hitting the database.
+    Cache key: issue:{issue_id}. Cache is invalidated by the sync job when
+    the issue description is regenerated.
+
     Used by the task detail page. Returns the full project object (not just
     a summary) so the "About This Project" section can render without a
     separate /projects/:id call.
@@ -169,6 +174,13 @@ def get_issue(issue_id: str, db: Session = Depends(get_db)) -> dict:
         uid = UUID(issue_id)
     except ValueError:
         raise HTTPException(status_code=404, detail="Issue not found")
+
+    # Check cache before querying the database — detail pages are the highest
+    # traffic single-item endpoint and benefit most from caching
+    cache_key = f"issue:{issue_id}"
+    cached = app_cache.get(cache_key)
+    if cached:
+        return cached
 
     task = (
         db.query(Task)
@@ -206,7 +218,10 @@ def get_issue(issue_id: str, db: Session = Depends(get_db)) -> dict:
     issue_data = _build_issue_response(task)
     issue_data["project"] = full_project
 
-    return {"success": True, "data": issue_data}
+    response = {"success": True, "data": issue_data}
+    # Store in cache for 30 minutes — invalidated by sync job on description update
+    app_cache.set(cache_key, response, TTL_ISSUE_DETAIL)
+    return response
 
 
 @router.post("")
