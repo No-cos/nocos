@@ -294,7 +294,8 @@ class GitHubClient:
         Returns:
             List of GitHub issue objects, or [] on failure.
         """
-        cache_key = REDIS_KEY_ISSUES.format(label=label, page=page)
+        # Key must include owner+repo so different repos never share a cache slot
+        cache_key = f"issues:{owner}:{repo}:{label}:{page}"
         cached = self._cache_get(cache_key)
         if cached:
             return cached
