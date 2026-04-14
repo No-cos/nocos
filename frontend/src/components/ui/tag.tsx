@@ -72,8 +72,8 @@ export function Tag({
   const baseStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
-    backgroundColor: "var(--color-surface)",
-    color: "var(--color-text-primary)",
+    backgroundColor: "var(--color-text-primary)",
+    color: "var(--color-bg)",
     border: `1.5px solid ${borderColor}`,
     borderRadius: "999px",
     fontFamily: "'Inter', sans-serif",
