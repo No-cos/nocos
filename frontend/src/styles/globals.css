@@ -209,7 +209,7 @@ h1, h2, h3 {
 .discovery-controls {
   display: flex;
   gap: 16px;
-  align-items: flex-start;
+  align-items: center;
 }
 @media (max-width: 639px) {
   .discovery-controls {
