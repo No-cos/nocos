@@ -222,19 +222,6 @@ export function SubscribeSection() {
         )}
       </div>
 
-      {/* Inline layout on desktop, stacked on mobile */}
-      <style>{`
-        .subscribe-input-row {
-          display: flex;
-          gap: 10px;
-          align-items: stretch;
-        }
-        @media (max-width: 479px) {
-          .subscribe-input-row {
-            flex-direction: column;
-          }
-        }
-      `}</style>
     </section>
   );
 }

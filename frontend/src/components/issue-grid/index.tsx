@@ -158,31 +158,6 @@ export function IssueGrid({ activeTypes, search }: IssueGridProps) {
         totalPages={totalPages}
         onPageChange={handlePageChange}
       />
-
-      <GridStyles />
     </div>
-  );
-}
-
-// CSS grid layout — 3 columns desktop, 2 tablet, 1 mobile (SKILLS.md §11)
-function GridStyles() {
-  return (
-    <style>{`
-      .issue-grid-layout {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-      }
-      @media (max-width: 1024px) {
-        .issue-grid-layout {
-          grid-template-columns: repeat(2, 1fr);
-        }
-      }
-      @media (max-width: 639px) {
-        .issue-grid-layout {
-          grid-template-columns: 1fr;
-        }
-      }
-    `}</style>
   );
 }

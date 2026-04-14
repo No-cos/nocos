@@ -144,3 +144,198 @@ h1, h2, h3 {
   outline: 2px solid var(--color-cta-primary);
   outline-offset: 2px;
 }
+
+/* ─── FilterBar — hide scrollbar cross-browser ──────────────────────────────── */
+/* scrollbarWidth handles Firefox; -webkit-scrollbar handles Chrome/Safari/Edge  */
+[role="group"][aria-label="Filter issues by contribution type"] {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+[role="group"][aria-label="Filter issues by contribution type"]::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Related Issues — hide scrollbar (WebKit) ──────────────────────────────── */
+[data-related-scroll]::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Hero — CTA buttons ────────────────────────────────────────────────────── */
+.hero-ctas {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+@media (max-width: 479px) {
+  .hero-ctas {
+    flex-direction: column;
+    align-items: center;
+  }
+  .hero-ctas a {
+    width: 100%;
+    max-width: 280px;
+    justify-content: center;
+  }
+}
+
+/* ─── Marquee animations ────────────────────────────────────────────────────── */
+@keyframes marquee-left {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes marquee-right {
+  0%   { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 10px;
+  align-items: center;
+}
+.marquee-track--left {
+  animation: marquee-left 28s linear infinite;
+}
+.marquee-track--right {
+  animation: marquee-right 32s linear infinite;
+}
+.marquee-row:hover .marquee-track,
+.marquee-row:focus-within .marquee-track {
+  animation-play-state: paused;
+}
+
+/* ─── Home page — discovery controls layout ─────────────────────────────────── */
+.discovery-controls {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+@media (max-width: 639px) {
+  .discovery-controls {
+    flex-direction: column;
+  }
+  .discovery-controls > div,
+  .discovery-controls > * {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* ─── Navbar — responsive visibility ────────────────────────────────────────── */
+.nav-links-desktop { display: flex; }
+.hamburger-btn { display: none; }
+@media (max-width: 767px) {
+  .nav-links-desktop { display: none !important; }
+  .hamburger-btn { display: flex !important; }
+}
+
+/* ─── Post page — two-column layout ─────────────────────────────────────────── */
+.post-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 48px;
+}
+.post-layout button[type="submit"] {
+  width: 100%;
+}
+@media (min-width: 768px) {
+  .post-layout {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .preview-column {
+    position: sticky;
+    top: 80px;
+  }
+  .post-layout button[type="submit"] {
+    width: auto;
+  }
+}
+
+/* ─── Spinner animation ─────────────────────────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Subscribe section — input row ─────────────────────────────────────────── */
+.subscribe-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+@media (max-width: 479px) {
+  .subscribe-input-row {
+    flex-direction: column;
+  }
+}
+
+/* ─── Footer grid ───────────────────────────────────────────────────────────── */
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 40px;
+}
+@media (max-width: 767px) {
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+/* ─── Issue grid — responsive columns ───────────────────────────────────────── */
+.issue-grid-layout {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+@media (max-width: 1024px) {
+  .issue-grid-layout {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 639px) {
+  .issue-grid-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Skeleton shimmer ───────────────────────────────────────────────────────── */
+.skeleton-pulse,
+.sk {
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    var(--color-surface) 50%,
+    var(--color-border) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Task detail — CTA wrapper ─────────────────────────────────────────────── */
+.cta-wrapper {
+  max-width: 720px;
+  margin: 0 auto 48px;
+  padding: 0 24px;
+}
+@media (max-width: 639px) {
+  .cta-wrapper {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 12px 16px;
+    background: var(--color-bg);
+    border-top: 1px solid var(--color-border);
+    z-index: 40;
+  }
+  .cta-wrapper a {
+    border-radius: 10px;
+  }
+}

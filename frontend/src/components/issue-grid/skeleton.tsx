@@ -43,22 +43,6 @@ export function IssueCardSkeleton() {
         <div className="skeleton-pulse" style={{ width: 60, height: 12, borderRadius: 6 }} />
       </div>
 
-      <style>{`
-        .skeleton-pulse {
-          background: linear-gradient(
-            90deg,
-            var(--color-border) 25%,
-            var(--color-surface) 50%,
-            var(--color-border) 75%
-          );
-          background-size: 200% 100%;
-          animation: skeleton-shimmer 1.4s ease infinite;
-        }
-        @keyframes skeleton-shimmer {
-          0%   { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-      `}</style>
     </div>
   );
 }

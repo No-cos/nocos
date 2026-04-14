@@ -166,10 +166,6 @@ export function RelatedIssues({
         ))}
       </div>
 
-      {/* Hide webkit scrollbar via a scoped style tag */}
-      <style>{`
-        [data-related-scroll]::-webkit-scrollbar { display: none; }
-      `}</style>
     </section>
   );
 }

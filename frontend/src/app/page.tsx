@@ -127,24 +127,6 @@ export default function HomePage() {
       {/* ── Footer ─────────────────────────────────────────────────── */}
       <Footer />
 
-      {/* Discovery controls layout: side-by-side on desktop, stacked on mobile */}
-      <style>{`
-        .discovery-controls {
-          display: flex;
-          gap: 16px;
-          align-items: flex-start;
-        }
-        @media (max-width: 639px) {
-          .discovery-controls {
-            flex-direction: column;
-          }
-          .discovery-controls > div,
-          .discovery-controls > * {
-            width: 100%;
-            max-width: 100%;
-          }
-        }
-      `}</style>
     </>
   );
 }

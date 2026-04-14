@@ -33,32 +33,6 @@ export function CategoryMarquee() {
         <MarqueeRow types={[...types].reverse()} direction="right" />
       </div>
 
-      <style>{`
-        @keyframes marquee-left {
-          0%   { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        @keyframes marquee-right {
-          0%   { transform: translateX(-50%); }
-          100% { transform: translateX(0); }
-        }
-        .marquee-track {
-          display: flex;
-          width: max-content;
-          gap: 10px;
-          align-items: center;
-        }
-        .marquee-track--left {
-          animation: marquee-left 28s linear infinite;
-        }
-        .marquee-track--right {
-          animation: marquee-right 32s linear infinite;
-        }
-        .marquee-row:hover .marquee-track,
-        .marquee-row:focus-within .marquee-track {
-          animation-play-state: paused;
-        }
-      `}</style>
     </section>
   );
 }

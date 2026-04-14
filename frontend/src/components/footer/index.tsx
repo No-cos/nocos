@@ -204,19 +204,6 @@ export function Footer() {
         </p>
       </div>
 
-      <style>{`
-        .footer-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 40px;
-        }
-        @media (max-width: 767px) {
-          .footer-grid {
-            grid-template-columns: 1fr;
-            gap: 32px;
-          }
-        }
-      `}</style>
     </footer>
   );
 }

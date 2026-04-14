@@ -97,12 +97,6 @@ export function FilterBar({ activeTypes, onChange }: FilterBarProps) {
         );
       })}
 
-      {/* Hide scrollbar on WebKit browsers */}
-      <style>{`
-        [role="group"][aria-label="Filter issues by contribution type"]::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
     </div>
   );
 }

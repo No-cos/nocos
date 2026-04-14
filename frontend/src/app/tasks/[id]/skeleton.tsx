@@ -44,22 +44,6 @@ export function DetailPageSkeleton() {
         <div key={i} className="sk" style={{ width: `${pct}%`, height: 13, borderRadius: 6, marginBottom: 8 }} />
       ))}
 
-      <style>{`
-        .sk {
-          background: linear-gradient(
-            90deg,
-            var(--color-border) 25%,
-            var(--color-surface) 50%,
-            var(--color-border) 75%
-          );
-          background-size: 200% 100%;
-          animation: sk-shimmer 1.4s ease infinite;
-        }
-        @keyframes sk-shimmer {
-          0%   { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-      `}</style>
     </div>
   );
 }

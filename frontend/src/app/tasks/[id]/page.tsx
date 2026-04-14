@@ -356,31 +356,6 @@ export default function TaskDetailPage() {
         </a>
       </div>
 
-      <style>{`
-        /* Desktop: CTA renders inline in normal flow */
-        .cta-wrapper {
-          max-width: 720px;
-          margin: 0 auto 48px;
-          padding: 0 24px;
-        }
-        /* Mobile: fix CTA to bottom of viewport for easy tap access */
-        @media (max-width: 639px) {
-          .cta-wrapper {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            margin: 0;
-            padding: 12px 16px;
-            background: var(--color-bg);
-            border-top: 1px solid var(--color-border);
-            z-index: 40;
-          }
-          .cta-wrapper a {
-            border-radius: 10px;
-          }
-        }
-      `}</style>
     </>
   );
 }

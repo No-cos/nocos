@@ -258,15 +258,6 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
         </div>
       )}
 
-      {/* Responsive CSS: hide desktop links on mobile, hide hamburger on desktop */}
-      <style>{`
-        .nav-links-desktop { display: flex; }
-        .hamburger-btn { display: none; }
-        @media (max-width: 767px) {
-          .nav-links-desktop { display: none !important; }
-          .hamburger-btn { display: flex !important; }
-        }
-      `}</style>
     </header>
   );
 }

@@ -886,36 +886,6 @@ export default function PostTaskPage() {
         </div>
       </div>
 
-      <style>{`
-        /* Two-column layout: form left, preview right */
-        .post-layout {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 48px;
-        }
-
-        /* Submit button full-width on mobile */
-        .post-layout button[type="submit"] {
-          width: 100%;
-        }
-
-        @media (min-width: 768px) {
-          .post-layout {
-            grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-            align-items: start;
-          }
-
-          .preview-column {
-            position: sticky;
-            top: 80px; /* below the navbar */
-          }
-
-          /* Desktop: auto-width submit button */
-          .post-layout button[type="submit"] {
-            width: auto;
-          }
-        }
-      `}</style>
     </PageShell>
   );
 }
@@ -1058,11 +1028,6 @@ function Spinner() {
           flexShrink: 0,
         }}
       />
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </>
   );
 }

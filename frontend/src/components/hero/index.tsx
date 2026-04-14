@@ -118,26 +118,6 @@ export function Hero() {
         </div>
       </div>
 
-      {/* Responsive: stack CTA buttons on very small screens */}
-      <style>{`
-        .hero-ctas {
-          display: flex;
-          gap: 16px;
-          justify-content: center;
-          flex-wrap: wrap;
-        }
-        @media (max-width: 479px) {
-          .hero-ctas {
-            flex-direction: column;
-            align-items: center;
-          }
-          .hero-ctas a {
-            width: 100%;
-            max-width: 280px;
-            justify-content: center;
-          }
-        }
-      `}</style>
     </section>
   );
 }
