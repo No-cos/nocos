@@ -30,25 +30,9 @@ export function relativeTime(dateString: string): string {
  * @param type - Contribution type string (e.g. "design", "documentation")
  * @returns CSS variable string (e.g. "var(--tag-design)")
  */
-export function getTagColor(type: string): string {
-  const colorMap: Record<string, string> = {
-    design: "var(--tag-design)",
-    documentation: "var(--tag-documentation)",
-    pr_review: "var(--tag-pr-review)",
-    data_analytics: "var(--tag-data-analytics)",
-    translation: "var(--tag-translation)",
-    research: "var(--tag-research)",
-    community: "var(--tag-community)",
-    marketing: "var(--tag-marketing)",
-    social_media: "var(--tag-social-media)",
-    project_management: "var(--tag-project-management)",
-    hacktoberfest: "var(--tag-hacktoberfest)",
-    paid: "var(--tag-paid)",
-    beginner: "var(--tag-beginner)",
-  };
-
-  // Fall back to the secondary text color for unknown types
-  return colorMap[type] ?? "var(--color-text-secondary)";
+export function getTagColor(_type: string): string {
+  // Temporary: uniform border color for visual testing — restore per-type colors when done
+  return "var(--color-text-primary)";
 }
 
 /**
