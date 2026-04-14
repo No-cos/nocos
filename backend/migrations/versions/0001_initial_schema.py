@@ -22,26 +22,42 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ── Enums — use IF NOT EXISTS so re-runs are safe ──────────────────────────
+    # ── Enums — DO block catches duplicate_object so re-runs are safe ──────────
     conn = op.get_bind()
-    conn.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS activity_status_enum AS ENUM ('active', 'slow', 'inactive')"
-    ))
-    conn.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS contribution_type_enum AS ENUM ("
-        "'design', 'documentation', 'translation', 'research', 'pr_review', "
-        "'data_analytics', 'community', 'marketing', 'social_media', "
-        "'project_management', 'other')"
-    ))
-    conn.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS difficulty_enum AS ENUM ('beginner', 'intermediate', 'advanced')"
-    ))
-    conn.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS task_source_enum AS ENUM ('github_scrape', 'manual_post')"
-    ))
-    conn.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS hidden_reason_enum AS ENUM ('closed', 'stale', 'archived')"
-    ))
+    conn.execute(sa.text("""
+        DO $$ BEGIN
+            CREATE TYPE activity_status_enum AS ENUM ('active', 'slow', 'inactive');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+    """))
+    conn.execute(sa.text("""
+        DO $$ BEGIN
+            CREATE TYPE contribution_type_enum AS ENUM (
+                'design', 'documentation', 'translation', 'research', 'pr_review',
+                'data_analytics', 'community', 'marketing', 'social_media',
+                'project_management', 'other'
+            );
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+    """))
+    conn.execute(sa.text("""
+        DO $$ BEGIN
+            CREATE TYPE difficulty_enum AS ENUM ('beginner', 'intermediate', 'advanced');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+    """))
+    conn.execute(sa.text("""
+        DO $$ BEGIN
+            CREATE TYPE task_source_enum AS ENUM ('github_scrape', 'manual_post');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+    """))
+    conn.execute(sa.text("""
+        DO $$ BEGIN
+            CREATE TYPE hidden_reason_enum AS ENUM ('closed', 'stale', 'archived');
+        EXCEPTION WHEN duplicate_object THEN NULL;
+        END $$;
+    """))
 
     # Reference enums for column definitions
     activity_status_enum = sa.Enum(
