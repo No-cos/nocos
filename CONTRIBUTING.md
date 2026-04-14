@@ -6,6 +6,30 @@ If anything is unclear, open an issue and we'll improve this guide.
 
 ---
 
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 14, Tailwind CSS, TypeScript |
+| Backend | Python 3.11+, FastAPI, SQLAlchemy |
+| Database | PostgreSQL |
+| Cache | Redis |
+| AI | Anthropic SDK (Claude Sonnet) |
+| Scheduler | APScheduler |
+
+---
+
+## Prerequisites
+
+Before you start, make sure you have the following installed:
+
+- **Node.js 18+** — [nodejs.org](https://nodejs.org)
+- **Python 3.11+** — [python.org](https://www.python.org)
+- **PostgreSQL** — [postgresql.org](https://www.postgresql.org)
+- **Redis** — [redis.io](https://redis.io)
+
+---
+
 ## Table of Contents
 
 1. [Fork and clone the repo](#1-fork-and-clone-the-repo)
