@@ -23,6 +23,13 @@ export function CategoryMarquee() {
         padding: "32px 0 40px",
         overflow: "hidden",
         backgroundColor: "var(--color-bg)",
+        // Fade the left and right edges into the background using a CSS mask.
+        // This gives the marquee the appearance of emerging from and dissolving
+        // into the page — purely CSS, no extra elements needed.
+        WebkitMaskImage:
+          "linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)",
+        maskImage:
+          "linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%)",
       }}
     >
       {/* Row 1 — scrolls left */}
