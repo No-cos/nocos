@@ -27,9 +27,9 @@ export function CategoryMarquee() {
         // This gives the marquee the appearance of emerging from and dissolving
         // into the page — purely CSS, no extra elements needed.
         WebkitMaskImage:
-          "linear-gradient(to right, transparent 0%, black 25%, black 75%, transparent 100%)",
+          "linear-gradient(to right, transparent 0%, black 75%, black 75%, transparent 100%)",
         maskImage:
-          "linear-gradient(to right, transparent 0%, black 25%, black 75%, transparent 100%)",
+          "linear-gradient(to right, transparent 0%, black 75%, black 75%, transparent 100%)",
       }}
     >
       {/* Row 1 — scrolls left */}
