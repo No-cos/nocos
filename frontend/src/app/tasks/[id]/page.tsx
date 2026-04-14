@@ -372,6 +372,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
       style={{
         minHeight: "100vh",
         backgroundColor: "var(--color-bg)",
+        paddingTop: "80px",
       }}
     >
       {children}
