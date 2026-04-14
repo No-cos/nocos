@@ -22,39 +22,46 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ── Enums ──────────────────────────────────────────────────────────────────
+    # ── Enums — use IF NOT EXISTS so re-runs are safe ──────────────────────────
+    conn = op.get_bind()
+    conn.execute(sa.text(
+        "CREATE TYPE IF NOT EXISTS activity_status_enum AS ENUM ('active', 'slow', 'inactive')"
+    ))
+    conn.execute(sa.text(
+        "CREATE TYPE IF NOT EXISTS contribution_type_enum AS ENUM ("
+        "'design', 'documentation', 'translation', 'research', 'pr_review', "
+        "'data_analytics', 'community', 'marketing', 'social_media', "
+        "'project_management', 'other')"
+    ))
+    conn.execute(sa.text(
+        "CREATE TYPE IF NOT EXISTS difficulty_enum AS ENUM ('beginner', 'intermediate', 'advanced')"
+    ))
+    conn.execute(sa.text(
+        "CREATE TYPE IF NOT EXISTS task_source_enum AS ENUM ('github_scrape', 'manual_post')"
+    ))
+    conn.execute(sa.text(
+        "CREATE TYPE IF NOT EXISTS hidden_reason_enum AS ENUM ('closed', 'stale', 'archived')"
+    ))
+
+    # Reference enums for column definitions
     activity_status_enum = sa.Enum(
-        "active", "slow", "inactive", name="activity_status_enum"
+        "active", "slow", "inactive", name="activity_status_enum", create_type=False
     )
     contribution_type_enum = sa.Enum(
-        "design",
-        "documentation",
-        "translation",
-        "research",
-        "pr_review",
-        "data_analytics",
-        "community",
-        "marketing",
-        "social_media",
-        "project_management",
-        "other",
-        name="contribution_type_enum",
+        "design", "documentation", "translation", "research", "pr_review",
+        "data_analytics", "community", "marketing", "social_media",
+        "project_management", "other",
+        name="contribution_type_enum", create_type=False,
     )
     difficulty_enum = sa.Enum(
-        "beginner", "intermediate", "advanced", name="difficulty_enum"
+        "beginner", "intermediate", "advanced", name="difficulty_enum", create_type=False
     )
     task_source_enum = sa.Enum(
-        "github_scrape", "manual_post", name="task_source_enum"
+        "github_scrape", "manual_post", name="task_source_enum", create_type=False
     )
     hidden_reason_enum = sa.Enum(
-        "closed", "stale", "archived", name="hidden_reason_enum"
+        "closed", "stale", "archived", name="hidden_reason_enum", create_type=False
     )
-
-    activity_status_enum.create(op.get_bind(), checkfirst=True)
-    contribution_type_enum.create(op.get_bind(), checkfirst=True)
-    difficulty_enum.create(op.get_bind(), checkfirst=True)
-    task_source_enum.create(op.get_bind(), checkfirst=True)
-    hidden_reason_enum.create(op.get_bind(), checkfirst=True)
 
     # ── projects ───────────────────────────────────────────────────────────────
     op.create_table(
