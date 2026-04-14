@@ -17,6 +17,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { Navbar } from "@/components/navbar";
 import { Tag } from "@/components/ui/tag";
 import { ProjectAbout } from "@/components/project-about";
 import { RelatedIssues } from "@/components/related-issues";
@@ -139,6 +140,7 @@ export default function TaskDetailPage() {
 
   return (
     <>
+      <Navbar />
       <PageShell>
         {/* Extra bottom padding leaves room for the fixed CTA button */}
         <div

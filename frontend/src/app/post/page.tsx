@@ -32,6 +32,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
+import { Navbar } from "@/components/navbar";
 import { Tag } from "@/components/ui/tag";
 import { PreviewPanel } from "@/components/post-task/preview-panel";
 import { fetchRepoPreview, submitTask } from "@/lib/api";
@@ -252,7 +253,9 @@ export default function PostTaskPage() {
 
   if (successId) {
     return (
-      <PageShell>
+      <>
+        <Navbar />
+        <PageShell>
         <div
           style={{
             maxWidth: "600px",
@@ -391,6 +394,7 @@ export default function PostTaskPage() {
           </div>
         </div>
       </PageShell>
+      </>
     );
   }
 
@@ -400,7 +404,9 @@ export default function PostTaskPage() {
   const previewType = selectedTypes[0] ?? "design";
 
   return (
-    <PageShell>
+    <>
+      <Navbar />
+      <PageShell>
       <div
         style={{
           maxWidth: "1200px",
@@ -887,6 +893,7 @@ export default function PostTaskPage() {
       </div>
 
     </PageShell>
+    </>
   );
 }
 
