@@ -100,7 +100,12 @@ app = FastAPI(
 # Allow all origins in development so the Next.js dev server can call the API.
 # In production, restrict to nocos.cc only.
 allowed_origins = (
-    ["https://nocos.cc", "https://www.nocos.cc"]
+    [
+        "https://nocos.cc",
+        "https://www.nocos.cc",
+        # Vercel preview deployments — remove once nocos.cc domain is verified
+        "https://nocos-git-main-nocos-projects-2bff4141.vercel.app",
+    ]
     if config.is_production
     else ["*"]
 )
