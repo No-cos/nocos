@@ -20,6 +20,7 @@ const MOCK_ISSUES: Issue[] = [
     id: "mock-1",
     project_id: "proj-1",
     project: {
+      id: "proj-1",
       name: "CHAOSS",
       avatar_url: "https://avatars.githubusercontent.com/u/29740296?v=4",
       activity_status: "active",
@@ -43,6 +44,7 @@ const MOCK_ISSUES: Issue[] = [
     id: "mock-2",
     project_id: "proj-2",
     project: {
+      id: "proj-2",
       name: "Mozilla",
       avatar_url: "https://avatars.githubusercontent.com/u/131524?v=4",
       activity_status: "active",
@@ -66,6 +68,7 @@ const MOCK_ISSUES: Issue[] = [
     id: "mock-3",
     project_id: "proj-3",
     project: {
+      id: "proj-3",
       name: "Open Source Design",
       avatar_url: "https://avatars.githubusercontent.com/u/7833980?v=4",
       activity_status: "active",
@@ -89,6 +92,7 @@ const MOCK_ISSUES: Issue[] = [
     id: "mock-4",
     project_id: "proj-4",
     project: {
+      id: "proj-4",
       name: "Ushahidi",
       avatar_url: "https://avatars.githubusercontent.com/u/203776?v=4",
       activity_status: "slow",
@@ -112,6 +116,7 @@ const MOCK_ISSUES: Issue[] = [
     id: "mock-5",
     project_id: "proj-5",
     project: {
+      id: "proj-5",
       name: "Wikimedia",
       avatar_url: "https://avatars.githubusercontent.com/u/146641?v=4",
       activity_status: "active",
@@ -135,6 +140,7 @@ const MOCK_ISSUES: Issue[] = [
     id: "mock-6",
     project_id: "proj-6",
     project: {
+      id: "proj-6",
       name: "Apache Software Foundation",
       avatar_url: "https://avatars.githubusercontent.com/u/47359?v=4",
       activity_status: "active",
@@ -158,6 +164,7 @@ const MOCK_ISSUES: Issue[] = [
     id: "mock-7",
     project_id: "proj-7",
     project: {
+      id: "proj-7",
       name: "Nextcloud",
       avatar_url: "https://avatars.githubusercontent.com/u/19211038?v=4",
       activity_status: "active",
@@ -181,6 +188,7 @@ const MOCK_ISSUES: Issue[] = [
     id: "mock-8",
     project_id: "proj-8",
     project: {
+      id: "proj-8",
       name: "Grafana",
       avatar_url: "https://avatars.githubusercontent.com/u/7195757?v=4",
       activity_status: "active",
@@ -204,6 +212,7 @@ const MOCK_ISSUES: Issue[] = [
     id: "mock-9",
     project_id: "proj-1",
     project: {
+      id: "proj-1",
       name: "CHAOSS",
       avatar_url: "https://avatars.githubusercontent.com/u/29740296?v=4",
       activity_status: "active",
@@ -227,6 +236,7 @@ const MOCK_ISSUES: Issue[] = [
     id: "mock-10",
     project_id: "proj-9",
     project: {
+      id: "proj-9",
       name: "Django",
       avatar_url: "https://avatars.githubusercontent.com/u/27804?v=4",
       activity_status: "active",
@@ -250,6 +260,7 @@ const MOCK_ISSUES: Issue[] = [
     id: "mock-11",
     project_id: "proj-10",
     project: {
+      id: "proj-10",
       name: "Linux Foundation",
       avatar_url: "https://avatars.githubusercontent.com/u/1864969?v=4",
       activity_status: "slow",
@@ -273,6 +284,7 @@ const MOCK_ISSUES: Issue[] = [
     id: "mock-12",
     project_id: "proj-11",
     project: {
+      id: "proj-11",
       name: "Open Food Facts",
       avatar_url: "https://avatars.githubusercontent.com/u/1799923?v=4",
       activity_status: "active",
