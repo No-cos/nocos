@@ -48,16 +48,6 @@ export default function HomePage() {
         {/* ── Category Marquee ────────────────────────────────────── */}
         <CategoryMarquee />
 
-        {/* ── Divider ─────────────────────────────────────────────── */}
-        <div
-          style={{
-            height: "1px",
-            backgroundColor: "var(--color-border)",
-            margin: "0",
-          }}
-          aria-hidden="true"
-        />
-
         {/* ── Discovery section ───────────────────────────────────── */}
         <section
           style={{
