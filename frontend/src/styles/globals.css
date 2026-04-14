@@ -1,0 +1,132 @@
+/* globals.css
+ * Base styles and CSS custom property tokens for Nocos.
+ * All color values are defined here as CSS variables so that dark mode
+ * works by toggling a class on <html> — components never need to know
+ * which mode is active, they just reference these tokens.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Google Fonts ──────────────────────────────────────────────────────────── */
+/* Plus Jakarta Sans: used for headers, brand name, card titles                 */
+/* Inter: used for body text, labels, buttons, inputs, captions                 */
+/* display=swap ensures text renders immediately with fallback font              */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
+/* ─── Light Mode (Default) ──────────────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --color-bg: #FFFFFF;
+  --color-surface: #F9F9F9;
+
+  /* Borders and dividers */
+  --color-border: #E5E5E5;
+
+  /* Text */
+  --color-text-primary: #0F0F0F;
+  --color-text-secondary: #6B6B6B;
+
+  /* CTAs — same in light and dark mode */
+  --color-cta-primary: #6C3CF7;
+  --color-cta-secondary: #F5F0C0;
+  --color-cta-secondary-text: #0F0F0F;
+
+  /* Activity status indicators */
+  --color-status-active: #22C55E;
+  --color-status-slow: #F59E0B;
+  --color-status-inactive: #EF4444;
+
+  /* Tag border colors — one per contribution type */
+  --tag-design: #A78BFA;
+  --tag-documentation: #60A5FA;
+  --tag-pr-review: #34D399;
+  --tag-data-analytics: #F472B6;
+  --tag-translation: #FB923C;
+  --tag-research: #818CF8;
+  --tag-community: #4ADE80;
+  --tag-marketing: #F87171;
+  --tag-social-media: #22D3EE;
+  --tag-project-management: #2DD4BF;
+  --tag-hacktoberfest: #F59E0B;
+  --tag-paid: #EAB308;
+  --tag-beginner: #86EFAC;
+
+  /* Component tokens */
+  --card-radius: 12px;
+  --card-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  --card-hover-transform: translateY(-2px);
+  --transition-speed: 150ms ease;
+  --content-max-width: 1280px;
+  --detail-max-width: 720px;
+}
+
+/* ─── Dark Mode ─────────────────────────────────────────────────────────────── */
+/* Applied by toggling class="dark" on <html>.                                  */
+/* CTA colors are intentionally unchanged — they stay vibrant in dark mode.     */
+html.dark {
+  --color-bg: #0C0C0C;
+  --color-surface: #161616;
+  --color-border: #2A2A2A;
+  --color-text-primary: #F5F5F5;
+  --color-text-secondary: #9A9A9A;
+
+  /* Card shadow is heavier in dark mode for separation */
+  --card-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── Base Styles ───────────────────────────────────────────────────────────── */
+html {
+  /* Smooth transition when switching between light and dark mode */
+  transition: background 200ms ease;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Headlines use Plus Jakarta Sans */
+h1, h2, h3 {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* ─── Tag Component ─────────────────────────────────────────────────────────── */
+/* Tags use colored border only — fill and text remain neutral.                 */
+/* This keeps the design clean while making contribution types identifiable.    */
+.tag {
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  border-radius: 999px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border: 1.5px solid currentColor;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ─── Card Component ────────────────────────────────────────────────────────── */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+}
+
+.card:hover {
+  transform: var(--card-hover-transform);
+}
+
+/* ─── Focus Styles ──────────────────────────────────────────────────────────── */
+/* Never remove focus outlines without a replacement — required for WCAG 2.1 AA */
+:focus-visible {
+  outline: 2px solid var(--color-cta-primary);
+  outline-offset: 2px;
+}
