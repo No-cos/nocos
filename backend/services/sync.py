@@ -310,6 +310,239 @@ def run_sync(session_factory) -> None:
             logger.exception("Freshness sync failed — rolled back", extra={"error": str(e)})
 
 
+# ─── Scrape & Ingest New Issues ───────────────────────────────────────────────
+
+def _ingest_repo_issues(
+    project_data: dict,
+    raw_issues: list[dict],
+    session: Session,
+) -> tuple[bool, int]:
+    """
+    Upsert a project record and insert any newly discovered tasks.
+
+    Filters the raw scraped issues through the staleness/code-only/closed
+    checks, enriches survivors with AI descriptions where needed, then
+    inserts only issues that don't already exist in the database
+    (matched by github_issue_id).
+
+    Args:
+        project_data: Structured project dict from scraper.build_project_data()
+        raw_issues:   Raw issue dicts from scraper.scrape_repo()
+        session:      Active SQLAlchemy session (caller commits)
+
+    Returns:
+        Tuple of (project_was_new, new_tasks_inserted_count)
+    """
+    from services.issue_finder.filters import apply_filters
+    from services.issue_finder.enricher import enrich_issues
+
+    owner = project_data["github_owner"]
+    repo = project_data["github_repo"]
+
+    # Upsert the project — create it if it doesn't exist yet
+    project = session.query(Project).filter(
+        Project.github_owner == owner,
+        Project.github_repo == repo,
+    ).first()
+
+    project_is_new = False
+    if project is None:
+        last_commit_date = project_data.get("last_commit_date")
+        status, score = calculate_activity_status(last_commit_date)
+        project = Project(
+            name=project_data["name"],
+            github_url=project_data["github_url"],
+            github_owner=owner,
+            github_repo=repo,
+            description=project_data.get("description") or "",
+            website_url=project_data.get("website_url"),
+            avatar_url=project_data["avatar_url"],
+            social_links=project_data.get("social_links", {}),
+            activity_score=score,
+            activity_status=status,
+            last_commit_date=last_commit_date,
+            is_active=not project_data.get("is_archived", False),
+        )
+        session.add(project)
+        session.flush()  # Populate project.id before inserting tasks
+        project_is_new = True
+        logger.info(
+            "New project created",
+            extra={"owner": owner, "repo": repo},
+        )
+
+    # Apply staleness / code-only / closed filters
+    filtered = apply_filters(raw_issues)
+    if not filtered:
+        return project_is_new, 0
+
+    # Enrich with AI descriptions where the body is too short
+    enriched = enrich_issues(
+        filtered,
+        repo_description=project_data.get("description") or "",
+    )
+
+    # Insert only tasks not already in the database
+    new_count = 0
+    for issue in enriched:
+        github_issue_id = issue.get("github_issue_id")
+
+        if github_issue_id is not None:
+            already_exists = (
+                session.query(Task)
+                .filter(Task.github_issue_id == github_issue_id)
+                .first()
+            )
+            if already_exists:
+                continue
+
+        task = Task(
+            project_id=project.id,
+            github_issue_id=github_issue_id,
+            github_issue_number=issue.get("github_issue_number"),
+            title=issue.get("title", ""),
+            description_original=issue.get("body"),
+            description_display=issue.get(
+                "description_display",
+                "Visit GitHub for full details on this task.",
+            ),
+            is_ai_generated=issue.get("is_ai_generated", False),
+            labels=issue.get("labels", []),
+            contribution_type=issue.get("contribution_type", "other"),
+            is_paid=False,
+            difficulty=None,
+            source="github_scrape",
+            github_created_at=issue.get("github_created_at"),
+            github_issue_url=issue.get("github_issue_url", ""),
+            is_active=True,
+        )
+        session.add(task)
+        new_count += 1
+
+    logger.info(
+        "Repo ingest complete",
+        extra={
+            "owner": owner,
+            "repo": repo,
+            "raw": len(raw_issues),
+            "filtered": len(filtered),
+            "new_tasks": new_count,
+        },
+    )
+    return project_is_new, new_count
+
+
+def run_scrape(extra_repos: list[str], session_factory) -> dict:
+    """
+    Scrape GitHub for non-code issues and ingest new tasks into the database.
+
+    Scrapes two sets of repos:
+      1. All active projects already in the database (so the scheduled sync
+         picks up new issues on existing tracked projects).
+      2. Any additional "owner/repo" strings passed by the caller — used by
+         the manual trigger endpoint to seed the database with new projects.
+
+    Deduplicates by github_issue_id so re-running is safe.
+
+    Args:
+        extra_repos:     List of "owner/repo" strings (may be empty)
+        session_factory: SQLAlchemy sessionmaker
+
+    Returns:
+        Dict: { projects_scraped, new_tasks_added, duration_seconds }
+    """
+    from services.issue_finder.scraper import scrape_repo
+
+    logger.info("Scrape run started", extra={"extra_repos": extra_repos})
+    start_time = datetime.now(tz=timezone.utc)
+
+    # Parse "owner/repo" strings — silently skip malformed entries
+    extra_pairs: list[tuple[str, str]] = []
+    for repo_str in extra_repos:
+        parts = repo_str.strip().split("/")
+        if len(parts) == 2 and parts[0] and parts[1]:
+            extra_pairs.append((parts[0], parts[1]))
+        else:
+            logger.warning(
+                "Skipping malformed repo string",
+                extra={"repo": repo_str},
+            )
+
+    total_projects_scraped = 0
+    total_new_tasks = 0
+
+    with session_factory() as session:
+        try:
+            # Existing DB projects
+            db_projects = (
+                session.query(Project)
+                .filter(Project.is_active == True)
+                .all()
+            )
+            db_pairs = {(p.github_owner, p.github_repo) for p in db_projects}
+
+            # Merge: DB projects first, then extra repos not already in DB
+            all_pairs = list(db_pairs) + [
+                pair for pair in extra_pairs if pair not in db_pairs
+            ]
+
+            for owner, repo_name in all_pairs:
+                logger.info(
+                    "Scraping repo",
+                    extra={"owner": owner, "repo": repo_name},
+                )
+                try:
+                    project_data, raw_issues = scrape_repo(owner, repo_name)
+                    if project_data is None:
+                        logger.warning(
+                            "Could not fetch project metadata — skipping",
+                            extra={"owner": owner, "repo": repo_name},
+                        )
+                        continue
+
+                    _, new_tasks = _ingest_repo_issues(
+                        project_data, raw_issues, session
+                    )
+                    total_projects_scraped += 1
+                    total_new_tasks += new_tasks
+
+                except RateLimitLowError:
+                    logger.warning(
+                        "GitHub rate limit hit — stopping scrape early",
+                        extra={"owner": owner, "repo": repo_name},
+                    )
+                    break
+                except Exception as e:
+                    logger.error(
+                        "Repo scrape failed — skipping",
+                        extra={
+                            "owner": owner,
+                            "repo": repo_name,
+                            "error": str(e),
+                        },
+                    )
+                    continue
+
+            session.commit()
+
+        except Exception as e:
+            session.rollback()
+            logger.exception(
+                "Scrape run failed — rolled back",
+                extra={"error": str(e)},
+            )
+            raise
+
+    duration = (datetime.now(tz=timezone.utc) - start_time).total_seconds()
+    stats = {
+        "projects_scraped": total_projects_scraped,
+        "new_tasks_added": total_new_tasks,
+        "duration_seconds": round(duration, 2),
+    }
+    logger.info("Scrape run complete", extra=stats)
+    return stats
+
+
 # ─── Scheduler Setup ──────────────────────────────────────────────────────────
 
 def create_scheduler(session_factory) -> BackgroundScheduler:
