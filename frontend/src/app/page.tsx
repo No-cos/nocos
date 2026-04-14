@@ -63,7 +63,7 @@ export default function HomePage() {
           style={{
             maxWidth: "var(--content-max-width)",
             margin: "0 auto",
-            padding: "40px 24px 64px",
+            padding: "100px 24px 100px",
           }}
           aria-label="Issue discovery"
         >
