@@ -8,7 +8,7 @@ builder = "NIXPACKS"
 
 [deploy]
 # Railway injects $PORT — uvicorn must bind to it (not a hardcoded port).
-startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+startCommand = "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT"
 # Health check against the /api/v1/health endpoint.
 # Railway will restart the service if this fails.
 healthcheckPath = "/api/v1/health"
