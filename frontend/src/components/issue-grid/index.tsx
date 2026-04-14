@@ -55,13 +55,10 @@ export function IssueGrid({ activeTypes, search }: IssueGridProps) {
   // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div>
-        <div className="issue-grid-layout" aria-busy="true" aria-label="Loading issues">
-          {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-            <IssueCardSkeleton key={i} />
-          ))}
-        </div>
-        <GridStyles />
+      <div className="issue-grid-layout" aria-busy="true" aria-label="Loading issues">
+        {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+          <IssueCardSkeleton key={i} />
+        ))}
       </div>
     );
   }
