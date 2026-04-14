@@ -8,11 +8,17 @@ Creates all initial tables:
   - projects
   - tasks
   - subscribers
+
+This migration is fully idempotent:
+  - Enums are created inside DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    so re-runs after a partial failure never crash on an already-existing enum type.
+  - Tables are created with CREATE TABLE IF NOT EXISTS so re-runs after a partial
+    failure never crash on an already-existing table.
+  - Indexes are created with CREATE INDEX IF NOT EXISTS for the same reason.
 """
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic
 revision = "0001_initial_schema"
@@ -22,14 +28,20 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ── Enums — DO block catches duplicate_object so re-runs are safe ──────────
     conn = op.get_bind()
+
+    # ── Enums ──────────────────────────────────────────────────────────────────
+    # Each CREATE TYPE is wrapped in a DO block so that if the type already
+    # exists (e.g. from a previous failed run that created types but not tables)
+    # the exception is silently swallowed and execution continues.
+
     conn.execute(sa.text("""
         DO $$ BEGIN
             CREATE TYPE activity_status_enum AS ENUM ('active', 'slow', 'inactive');
         EXCEPTION WHEN duplicate_object THEN NULL;
         END $$;
     """))
+
     conn.execute(sa.text("""
         DO $$ BEGIN
             CREATE TYPE contribution_type_enum AS ENUM (
@@ -40,18 +52,21 @@ def upgrade() -> None:
         EXCEPTION WHEN duplicate_object THEN NULL;
         END $$;
     """))
+
     conn.execute(sa.text("""
         DO $$ BEGIN
             CREATE TYPE difficulty_enum AS ENUM ('beginner', 'intermediate', 'advanced');
         EXCEPTION WHEN duplicate_object THEN NULL;
         END $$;
     """))
+
     conn.execute(sa.text("""
         DO $$ BEGIN
             CREATE TYPE task_source_enum AS ENUM ('github_scrape', 'manual_post');
         EXCEPTION WHEN duplicate_object THEN NULL;
         END $$;
     """))
+
     conn.execute(sa.text("""
         DO $$ BEGIN
             CREATE TYPE hidden_reason_enum AS ENUM ('closed', 'stale', 'archived');
@@ -59,171 +74,104 @@ def upgrade() -> None:
         END $$;
     """))
 
-    # Reference enums for column definitions
-    activity_status_enum = sa.Enum(
-        "active", "slow", "inactive", name="activity_status_enum", create_type=False
-    )
-    contribution_type_enum = sa.Enum(
-        "design", "documentation", "translation", "research", "pr_review",
-        "data_analytics", "community", "marketing", "social_media",
-        "project_management", "other",
-        name="contribution_type_enum", create_type=False,
-    )
-    difficulty_enum = sa.Enum(
-        "beginner", "intermediate", "advanced", name="difficulty_enum", create_type=False
-    )
-    task_source_enum = sa.Enum(
-        "github_scrape", "manual_post", name="task_source_enum", create_type=False
-    )
-    hidden_reason_enum = sa.Enum(
-        "closed", "stale", "archived", name="hidden_reason_enum", create_type=False
-    )
-
     # ── projects ───────────────────────────────────────────────────────────────
-    op.create_table(
-        "projects",
-        sa.Column(
-            "id",
-            postgresql.UUID(as_uuid=True),
-            primary_key=True,
-            nullable=False,
-        ),
-        sa.Column("name", sa.String(255), nullable=False),
-        sa.Column("github_url", sa.String(512), nullable=False, unique=True),
-        sa.Column("github_owner", sa.String(255), nullable=False),
-        sa.Column("github_repo", sa.String(255), nullable=False),
-        sa.Column("description", sa.Text, nullable=True),
-        sa.Column("website_url", sa.String(512), nullable=True),
-        sa.Column("avatar_url", sa.String(512), nullable=False),
-        sa.Column(
-            "social_links",
-            postgresql.JSON(astext_type=sa.Text()),
-            nullable=False,
-            server_default="{}",
-        ),
-        sa.Column("activity_score", sa.Integer, nullable=False, server_default="0"),
-        sa.Column(
-            "activity_status",
-            activity_status_enum,
-            nullable=False,
-            server_default="active",
-        ),
-        sa.Column("last_commit_date", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            nullable=False,
-            server_default=sa.text("now()"),
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            nullable=False,
-            server_default=sa.text("now()"),
-        ),
-    )
-    op.create_index("ix_projects_github_owner", "projects", ["github_owner"])
+    conn.execute(sa.text("""
+        CREATE TABLE IF NOT EXISTS projects (
+            id              UUID                        NOT NULL PRIMARY KEY,
+            name            VARCHAR(255)                NOT NULL,
+            github_url      VARCHAR(512)                NOT NULL UNIQUE,
+            github_owner    VARCHAR(255)                NOT NULL,
+            github_repo     VARCHAR(255)                NOT NULL,
+            description     TEXT,
+            website_url     VARCHAR(512),
+            avatar_url      VARCHAR(512)                NOT NULL,
+            social_links    JSON                        NOT NULL DEFAULT '{}',
+            activity_score  INTEGER                     NOT NULL DEFAULT 0,
+            activity_status activity_status_enum        NOT NULL DEFAULT 'active',
+            last_commit_date TIMESTAMPTZ,
+            is_active       BOOLEAN                     NOT NULL DEFAULT TRUE,
+            created_at      TIMESTAMPTZ                 NOT NULL DEFAULT now(),
+            updated_at      TIMESTAMPTZ                 NOT NULL DEFAULT now()
+        )
+    """))
+
+    conn.execute(sa.text("""
+        CREATE INDEX IF NOT EXISTS ix_projects_github_owner
+            ON projects (github_owner)
+    """))
 
     # ── tasks ──────────────────────────────────────────────────────────────────
-    op.create_table(
-        "tasks",
-        sa.Column(
-            "id",
-            postgresql.UUID(as_uuid=True),
-            primary_key=True,
-            nullable=False,
-        ),
-        sa.Column(
-            "project_id",
-            postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("projects.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
-        sa.Column("github_issue_id", sa.Integer, nullable=True, unique=True),
-        sa.Column("github_issue_number", sa.Integer, nullable=True),
-        sa.Column("title", sa.String(500), nullable=False),
-        sa.Column("description_original", sa.Text, nullable=True),
-        sa.Column("description_display", sa.Text, nullable=False),
-        sa.Column("is_ai_generated", sa.Boolean, nullable=False, server_default="false"),
-        sa.Column(
-            "labels",
-            postgresql.ARRAY(sa.String),
-            nullable=False,
-            server_default="{}",
-        ),
-        sa.Column(
-            "contribution_type",
-            contribution_type_enum,
-            nullable=False,
-            server_default="other",
-        ),
-        sa.Column("is_paid", sa.Boolean, nullable=False, server_default="false"),
-        sa.Column("difficulty", difficulty_enum, nullable=True),
-        sa.Column(
-            "source",
-            task_source_enum,
-            nullable=False,
-            server_default="github_scrape",
-        ),
-        sa.Column("github_created_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("github_issue_url", sa.String(512), nullable=False),
-        sa.Column("is_active", sa.Boolean, nullable=False, server_default="true"),
-        sa.Column("hidden_reason", hidden_reason_enum, nullable=True),
-        sa.Column("hidden_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            nullable=False,
-            server_default=sa.text("now()"),
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            nullable=False,
-            server_default=sa.text("now()"),
-        ),
-    )
-    op.create_index("ix_tasks_project_id", "tasks", ["project_id"])
-    op.create_index("ix_tasks_contribution_type", "tasks", ["contribution_type"])
-    op.create_index("ix_tasks_github_created_at", "tasks", ["github_created_at"])
-    op.create_index("ix_tasks_is_active", "tasks", ["is_active"])
+    conn.execute(sa.text("""
+        CREATE TABLE IF NOT EXISTS tasks (
+            id                    UUID                     NOT NULL PRIMARY KEY,
+            project_id            UUID                     NOT NULL
+                                      REFERENCES projects (id) ON DELETE CASCADE,
+            github_issue_id       INTEGER UNIQUE,
+            github_issue_number   INTEGER,
+            title                 VARCHAR(500)             NOT NULL,
+            description_original  TEXT,
+            description_display   TEXT                     NOT NULL,
+            is_ai_generated       BOOLEAN                  NOT NULL DEFAULT FALSE,
+            labels                TEXT[]                   NOT NULL DEFAULT '{}',
+            contribution_type     contribution_type_enum   NOT NULL DEFAULT 'other',
+            is_paid               BOOLEAN                  NOT NULL DEFAULT FALSE,
+            difficulty            difficulty_enum,
+            source                task_source_enum         NOT NULL DEFAULT 'github_scrape',
+            github_created_at     TIMESTAMPTZ,
+            github_issue_url      VARCHAR(512)             NOT NULL,
+            is_active             BOOLEAN                  NOT NULL DEFAULT TRUE,
+            hidden_reason         hidden_reason_enum,
+            hidden_at             TIMESTAMPTZ,
+            created_at            TIMESTAMPTZ              NOT NULL DEFAULT now(),
+            updated_at            TIMESTAMPTZ              NOT NULL DEFAULT now()
+        )
+    """))
+
+    conn.execute(sa.text("""
+        CREATE INDEX IF NOT EXISTS ix_tasks_project_id
+            ON tasks (project_id)
+    """))
+    conn.execute(sa.text("""
+        CREATE INDEX IF NOT EXISTS ix_tasks_contribution_type
+            ON tasks (contribution_type)
+    """))
+    conn.execute(sa.text("""
+        CREATE INDEX IF NOT EXISTS ix_tasks_github_created_at
+            ON tasks (github_created_at)
+    """))
+    conn.execute(sa.text("""
+        CREATE INDEX IF NOT EXISTS ix_tasks_is_active
+            ON tasks (is_active)
+    """))
 
     # ── subscribers ────────────────────────────────────────────────────────────
-    op.create_table(
-        "subscribers",
-        sa.Column(
-            "id",
-            postgresql.UUID(as_uuid=True),
-            primary_key=True,
-            nullable=False,
-        ),
-        sa.Column("email", sa.String(320), nullable=False, unique=True),
-        sa.Column("tag_preferences", postgresql.ARRAY(sa.String), nullable=True),
-        sa.Column("confirmed", sa.Boolean, nullable=False, server_default="false"),
-        sa.Column("confirmed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column(
-            "subscribed_at",
-            sa.DateTime(timezone=True),
-            nullable=False,
-            server_default=sa.text("now()"),
-        ),
-        sa.Column("unsubscribed_at", sa.DateTime(timezone=True), nullable=True),
-    )
+    conn.execute(sa.text("""
+        CREATE TABLE IF NOT EXISTS subscribers (
+            id               UUID        NOT NULL PRIMARY KEY,
+            email            VARCHAR(320) NOT NULL UNIQUE,
+            tag_preferences  TEXT[],
+            confirmed        BOOLEAN     NOT NULL DEFAULT FALSE,
+            confirmed_at     TIMESTAMPTZ,
+            subscribed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+            unsubscribed_at  TIMESTAMPTZ
+        )
+    """))
 
 
 def downgrade() -> None:
-    op.drop_table("subscribers")
-    op.drop_index("ix_tasks_is_active", table_name="tasks")
-    op.drop_index("ix_tasks_github_created_at", table_name="tasks")
-    op.drop_index("ix_tasks_contribution_type", table_name="tasks")
-    op.drop_index("ix_tasks_project_id", table_name="tasks")
-    op.drop_table("tasks")
-    op.drop_index("ix_projects_github_owner", table_name="projects")
-    op.drop_table("projects")
+    conn = op.get_bind()
 
-    sa.Enum(name="hidden_reason_enum").drop(op.get_bind(), checkfirst=True)
-    sa.Enum(name="task_source_enum").drop(op.get_bind(), checkfirst=True)
-    sa.Enum(name="difficulty_enum").drop(op.get_bind(), checkfirst=True)
-    sa.Enum(name="contribution_type_enum").drop(op.get_bind(), checkfirst=True)
-    sa.Enum(name="activity_status_enum").drop(op.get_bind(), checkfirst=True)
+    conn.execute(sa.text("DROP TABLE IF EXISTS subscribers"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_tasks_is_active"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_tasks_github_created_at"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_tasks_contribution_type"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_tasks_project_id"))
+    conn.execute(sa.text("DROP TABLE IF EXISTS tasks"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_projects_github_owner"))
+    conn.execute(sa.text("DROP TABLE IF EXISTS projects"))
+
+    conn.execute(sa.text("DROP TYPE IF EXISTS hidden_reason_enum"))
+    conn.execute(sa.text("DROP TYPE IF EXISTS task_source_enum"))
+    conn.execute(sa.text("DROP TYPE IF EXISTS difficulty_enum"))
+    conn.execute(sa.text("DROP TYPE IF EXISTS contribution_type_enum"))
+    conn.execute(sa.text("DROP TYPE IF EXISTS activity_status_enum"))
