@@ -167,7 +167,7 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
       {/* ── Tags ─────────────────────────────────────────────────────── */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
         {visibleTags.map((type) => (
-          <Tag key={type} type={type} size="sm" />
+          <Tag key={type} type={type} size="sm" filterMode={false} />
         ))}
         {hiddenTagCount > 0 && (
           <span
@@ -190,23 +190,33 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
       </div>
 
       {/* ── Description ──────────────────────────────────────────────── */}
-      <p
+      <div
         style={{
-          fontFamily: "'Inter', sans-serif",
-          fontSize: "13px",
-          lineHeight: 1.6,
-          color: "var(--color-text-secondary)",
-          margin: 0,
-          flexGrow: 1,
-          // 3-line clamp
-          display: "-webkit-box",
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
+          backgroundColor: "var(--color-bg)",
+          borderRadius: "8px",
+          padding: "16px",
+          marginTop: "12px",
+          marginBottom: "12px",
         }}
       >
-        {issue.description_display}
-      </p>
+        <p
+          style={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: "13px",
+            lineHeight: 1.6,
+            color: "var(--color-text-secondary)",
+            margin: 0,
+            flexGrow: 1,
+            // 3-line clamp
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {issue.description_display}
+        </p>
+      </div>
 
       {/* ── Bottom row: activity + AI badge ──────────────────────────── */}
       <div
