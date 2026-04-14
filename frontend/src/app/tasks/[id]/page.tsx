@@ -145,7 +145,7 @@ export default function TaskDetailPage() {
           style={{
             maxWidth: "720px",
             margin: "0 auto",
-            padding: "40px 24px 120px",
+            padding: "40px 24px 100px",
           }}
         >
           {/* ── Issue Section ────────────────────────────────────────────── */}

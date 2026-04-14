@@ -320,7 +320,7 @@ h1, h2, h3 {
 /* ─── Task detail — CTA wrapper ─────────────────────────────────────────────── */
 .cta-wrapper {
   max-width: 720px;
-  margin: 0 auto 48px;
+  margin: 0 auto 24px;
   padding: 0 24px;
 }
 @media (max-width: 639px) {

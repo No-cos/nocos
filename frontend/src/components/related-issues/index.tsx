@@ -28,7 +28,10 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { fetchIssues } from "@/lib/api";
 import { IssueCard } from "@/components/issue-card";
+import { getMockIssues } from "@/lib/mock-data";
 import type { Issue } from "@/lib/api";
+
+const IS_DEV = process.env.NODE_ENV === "development";
 
 interface RelatedIssuesProps {
   projectId: string;
@@ -75,8 +78,20 @@ export function RelatedIssues({
 
         setIssues(related);
       } catch {
-        // Non-critical — silently hide section on error
-        if (!cancelled) setIssues([]);
+        if (cancelled) return;
+        if (IS_DEV) {
+          // Backend not running — fall back to mock data
+          const mockResult = getMockIssues({ limit: 50 });
+          const related = mockResult.data
+            .filter(
+              (issue) =>
+                issue.project_id === projectId && issue.id !== currentIssueId
+            )
+            .slice(0, MAX_RELATED);
+          if (!cancelled) setIssues(related);
+        } else {
+          if (!cancelled) setIssues([]);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
