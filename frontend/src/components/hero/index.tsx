@@ -40,7 +40,7 @@ export function Hero() {
             margin: "0 0 20px",
           }}
         >
-          Discover and Contribute to Your Favourite Open Source Project.
+          Open source needs more than code.
         </h1>
 
         {/* Sub-headline */}
@@ -57,8 +57,7 @@ export function Hero() {
             marginRight: "auto",
           }}
         >
-          Non code contributors can now discover and contribute to OS without
-          technical hassle.
+          Find non-code tasks from real open source projects.
         </p>
 
         {/* CTA buttons */}
