@@ -38,7 +38,7 @@ export interface Project {
 export interface Issue {
   id: string;
   project_id: string;
-  project: Pick<Project, "name" | "avatar_url" | "activity_status">;
+  project: Pick<Project, "id" | "name" | "avatar_url" | "activity_status">;
   title: string;
   description_display: string;
   is_ai_generated: boolean;
