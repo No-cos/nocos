@@ -31,8 +31,7 @@ export function relativeTime(dateString: string): string {
  * @returns CSS variable string (e.g. "var(--tag-design)")
  */
 export function getTagColor(_type: string): string {
-  // Temporary: uniform border color for visual testing — restore per-type colors when done
-  return "var(--color-text-primary)";
+  return "#C6C9D3";
 }
 
 /**
