@@ -6,6 +6,7 @@
 
 import type { Metadata } from "next";
 import "@/styles/globals.css";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export const metadata: Metadata = {
   title: "Nocos — Discover and Contribute to Open Source",
@@ -50,7 +51,11 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {/* ErrorBoundary catches unexpected React render errors on any page
+            and shows a friendly fallback instead of a blank screen. */}
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </body>
     </html>
   );
 }
