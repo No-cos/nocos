@@ -1,51 +1,150 @@
-// page.tsx (Landing page — /)
-// Entry point for the Nocos discovery platform.
-// Phase 1: Placeholder shell. Full implementation in Phase 3.
-// TODO: Replace placeholder with full discovery grid — see Phase 3
+"use client";
+
+/**
+ * Landing page (/) — the Nocos discovery home.
+ *
+ * Composes all Phase 3 components in order:
+ *   Navbar → Hero → CategoryMarquee → [FilterBar + SearchBar] →
+ *   IssueGrid → SubscribeSection → Footer
+ *
+ * Filter and search state lives here so FilterBar, SearchBar, and IssueGrid
+ * share the same values without an extra state management layer.
+ *
+ * Dark mode is handled by the Navbar (via useDarkMode) which toggles the
+ * "dark" class on <html>. All components respond via CSS variables.
+ */
+
+import { useState } from "react";
+import { Navbar } from "@/components/navbar";
+import { Hero } from "@/components/hero";
+import { CategoryMarquee } from "@/components/marquee";
+import { FilterBar } from "@/components/filter-bar";
+import { SearchBar } from "@/components/search-bar";
+import { IssueGrid } from "@/components/issue-grid";
+import { SubscribeSection } from "@/components/subscribe-section";
+import { Footer } from "@/components/footer";
 
 export default function HomePage() {
+  // Filter and search state is lifted here so FilterBar, SearchBar, and
+  // IssueGrid all read from and write to the same values.
+  const [activeTypes, setActiveTypes] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+
+  function handleTypesChange(types: string[]) {
+    setActiveTypes(types);
+    // Reset search when filters change to avoid confusing combined results
+    // intentionally NOT resetting search — user may want both active
+  }
+
   return (
-    <main
-      style={{
-        backgroundColor: "var(--color-bg)",
-        color: "var(--color-text-primary)",
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "'Inter', sans-serif",
-      }}
-    >
-      <div style={{ textAlign: "center", maxWidth: "600px", padding: "2rem" }}>
-        <h1
+    <>
+      {/* ── Navigation ─────────────────────────────────────────────── */}
+      <Navbar />
+
+      <main>
+        {/* ── Hero ────────────────────────────────────────────────── */}
+        <Hero />
+
+        {/* ── Category Marquee ────────────────────────────────────── */}
+        <CategoryMarquee />
+
+        {/* ── Divider ─────────────────────────────────────────────── */}
+        <div
           style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontSize: "2.5rem",
-            fontWeight: 800,
-            color: "var(--color-cta-primary)",
-            marginBottom: "1rem",
+            height: "1px",
+            backgroundColor: "var(--color-border)",
+            margin: "0",
           }}
-        >
-          Nocos
-        </h1>
-        <p
+          aria-hidden="true"
+        />
+
+        {/* ── Discovery section ───────────────────────────────────── */}
+        <section
           style={{
-            fontSize: "1.125rem",
-            color: "var(--color-text-secondary)",
-            marginBottom: "2rem",
+            maxWidth: "var(--content-max-width)",
+            margin: "0 auto",
+            padding: "40px 24px 64px",
           }}
+          aria-label="Issue discovery"
         >
-          Discover and Contribute to Your Favourite Open Source Project.
-        </p>
-        <p
-          style={{
-            fontSize: "0.875rem",
-            color: "var(--color-text-secondary)",
-          }}
-        >
-          Phase 1 foundation is live. Full UI coming in Phase 3.
-        </p>
-      </div>
-    </main>
+          {/* Filter bar + search bar — side by side on desktop, stacked on mobile */}
+          <div className="discovery-controls">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <FilterBar
+                activeTypes={activeTypes}
+                onChange={handleTypesChange}
+              />
+            </div>
+            <SearchBar value={search} onChange={setSearch} />
+          </div>
+
+          {/* Issue count / active filter summary — helps orientation */}
+          {(activeTypes.length > 0 || search) && (
+            <p
+              style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: "13px",
+                color: "var(--color-text-secondary)",
+                margin: "12px 0 0",
+              }}
+            >
+              {activeTypes.length > 0 &&
+                `Filtering by: ${activeTypes.join(", ")}`}
+              {activeTypes.length > 0 && search && " · "}
+              {search && `Searching for "${search}"`}
+              <button
+                onClick={() => {
+                  setActiveTypes([]);
+                  setSearch("");
+                }}
+                style={{
+                  marginLeft: "12px",
+                  background: "none",
+                  border: "none",
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: "13px",
+                  color: "var(--color-cta-primary)",
+                  cursor: "pointer",
+                  padding: 0,
+                  textDecoration: "underline",
+                }}
+              >
+                Clear all
+              </button>
+            </p>
+          )}
+
+          {/* Issue grid — wired to filter + search state */}
+          <div style={{ marginTop: "28px" }}>
+            <IssueGrid activeTypes={activeTypes} search={search} />
+          </div>
+        </section>
+
+        {/* ── Subscribe Section ───────────────────────────────────── */}
+        <SubscribeSection />
+      </main>
+
+      {/* ── Footer ─────────────────────────────────────────────────── */}
+      <Footer />
+
+      {/* Discovery controls layout: side-by-side on desktop, stacked on mobile */}
+      <style>{`
+        .discovery-controls {
+          display: flex;
+          gap: 16px;
+          align-items: flex-start;
+        }
+        @media (max-width: 639px) {
+          .discovery-controls {
+            flex-direction: column;
+          }
+          .discovery-controls > div,
+          .discovery-controls > * {
+            width: 100%;
+            max-width: 100%;
+          }
+        }
+      `}</style>
+    </>
   );
 }
