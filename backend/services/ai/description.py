@@ -16,6 +16,7 @@ from typing import Optional
 import anthropic
 
 from config import config
+from services.retry import retry_call
 
 logger = logging.getLogger(__name__)
 
@@ -130,48 +131,46 @@ def generate_description(
         ),
     )
 
-    try:
-        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-        message = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=150,  # 60 words ≈ 80–100 tokens; 150 gives a safe buffer
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        generated = message.content[0].text.strip()
-
-        logger.info(
-            "AI description generated",
-            extra={
-                "repo": repo_name,
-                "issue_title": issue_title[:60],
-                "word_count": len(generated.split()),
-            },
-        )
-        return generated
-
-    except anthropic.AuthenticationError:
-        # Invalid API key — log clearly so it's obvious during setup
+    # Authentication errors should NOT be retried — the key is wrong and
+    # retrying immediately won't help. Check for them before the retry loop.
+    if not config.ANTHROPIC_API_KEY:
         logger.error(
             "Anthropic authentication failed — check ANTHROPIC_API_KEY in .env"
         )
         return FALLBACK_DESCRIPTION
 
-    except anthropic.RateLimitError:
-        # Anthropic rate limit hit — return fallback, the sync job continues
-        logger.warning(
-            "Anthropic rate limit reached — using fallback description",
-            extra={"repo": repo_name},
+    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    ctx = {"repo": repo_name, "issue_title": issue_title[:60]}
+
+    def _call_claude() -> str:
+        """Single Anthropic API call — wrapped by retry_call for resilience."""
+        message = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=150,  # 60 words ≈ 80–100 tokens; 150 gives a safe buffer
+            messages=[{"role": "user", "content": prompt}],
         )
+        return message.content[0].text.strip()
+
+    result = retry_call(
+        _call_claude,
+        fallback=None,  # None signals we should use FALLBACK_DESCRIPTION below
+        context=ctx,
+        log=logger,
+    )
+
+    if result is None:
+        # All retries exhausted — return the safe fallback string
         return FALLBACK_DESCRIPTION
 
-    except Exception as e:
-        # Any other failure — log with full context but never crash the sync job
-        logger.exception(
-            "Unexpected error generating AI description",
-            extra={"repo": repo_name, "issue_title": issue_title, "error": str(e)},
-        )
-        return FALLBACK_DESCRIPTION
+    logger.info(
+        "AI description generated",
+        extra={
+            "repo": repo_name,
+            "issue_title": issue_title[:60],
+            "word_count": len(result.split()),
+        },
+    )
+    return result
 
 
 def process_issue_description(

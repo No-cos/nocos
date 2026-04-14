@@ -14,6 +14,7 @@ from typing import Optional
 import resend
 
 from config import config
+from services.retry import retry_call
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +70,11 @@ def send_confirmation_email(email: str, subscriber_id: str) -> bool:
         f"{config.NEXT_PUBLIC_API_URL}/api/v1/subscribe/confirm/{subscriber_id}"
     )
 
-    try:
-        resend.api_key = config.EMAIL_SERVICE_API_KEY
+    resend.api_key = config.EMAIL_SERVICE_API_KEY
+    masked = _mask_email(email)
+
+    def _send() -> None:
+        """Single Resend API call — wrapped by retry_call for resilience."""
         resend.Emails.send({
             "from": config.EMAIL_FROM,
             "to": email,
@@ -78,20 +82,24 @@ def send_confirmation_email(email: str, subscriber_id: str) -> bool:
             "html": _build_confirmation_html(confirm_url),
         })
 
+    result = retry_call(
+        _send,
+        fallback=False,
+        context={"subscriber": masked},
+        log=logger,
+    )
+
+    # retry_call returns False (fallback) on failure, None on success (_send returns None)
+    # We treat any non-False result (including None from a successful send) as success.
+    if result is not False:
         logger.info(
             "Confirmation email sent",
-            extra={"subscriber": _mask_email(email)},
+            extra={"subscriber": masked},
         )
         return True
 
-    except Exception as e:
-        # Email delivery failure should not block the subscription API response.
-        # The subscriber record is already created — they can re-trigger later.
-        logger.error(
-            "Failed to send confirmation email",
-            extra={"subscriber": _mask_email(email), "error": str(e)},
-        )
-        return False
+    # retry_call already logged the error — just return False here
+    return False
 
 
 def _build_confirmation_html(confirm_url: str) -> str:

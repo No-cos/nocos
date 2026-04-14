@@ -18,6 +18,7 @@ import httpx
 import redis
 
 from config import config
+from services.retry import retry_call
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +178,9 @@ class GitHubClient:
         Returns project name, description, avatar, website, and archived status.
         Cached for 1 hour — repo metadata rarely changes.
 
+        Uses retry_call() for up to 3 attempts with exponential backoff (1s, 2s, 4s).
+        Rate limit errors short-circuit immediately — they do not consume retry budget.
+
         Args:
             owner: GitHub repository owner (e.g. "chaoss")
             repo:  GitHub repository name (e.g. "augur")
@@ -191,17 +195,6 @@ class GitHubClient:
 
         try:
             self._check_rate_limit()
-            response = self._http.get(f"/repos/{owner}/{repo}")
-            response.raise_for_status()
-            data = response.json()
-
-            self._cache_set(cache_key, data, ttl_seconds=3600)  # 1 hour
-            logger.info(
-                "Fetched repo from GitHub",
-                extra={"owner": owner, "repo": repo},
-            )
-            return data
-
         except RateLimitLowError:
             logger.warning(
                 "Rate limit low — returning empty repo",
@@ -209,26 +202,32 @@ class GitHubClient:
             )
             return {}
 
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                "GitHub API error fetching repo",
-                extra={"owner": owner, "repo": repo, "status": e.response.status_code},
-            )
-            return {}
+        def _fetch() -> dict:
+            response = self._http.get(f"/repos/{owner}/{repo}")
+            response.raise_for_status()
+            return response.json()
 
-        except Exception as e:
-            logger.exception(
-                "Unexpected error fetching repo",
-                extra={"owner": owner, "repo": repo, "error": str(e)},
+        data = retry_call(
+            _fetch,
+            fallback={},
+            context={"owner": owner, "repo": repo},
+            log=logger,
+        )
+
+        if data:
+            self._cache_set(cache_key, data, ttl_seconds=3600)  # 1 hour
+            logger.info(
+                "Fetched repo from GitHub",
+                extra={"owner": owner, "repo": repo},
             )
-            return {}
+        return data
 
     def get_last_commit_date(self, owner: str, repo: str) -> Optional[str]:
         """
         Fetch the date of the most recent commit to the default branch.
 
         Used to calculate activity_status (active / slow / inactive).
-        Cached for 30 minutes.
+        Cached for 30 minutes. Retries up to 3 times with exponential backoff.
 
         Args:
             owner: Repository owner
@@ -244,29 +243,29 @@ class GitHubClient:
 
         try:
             self._check_rate_limit()
+        except RateLimitLowError:
+            return None
+
+        def _fetch() -> Optional[str]:
             response = self._http.get(
                 f"/repos/{owner}/{repo}/commits",
                 params={"per_page": 1},
             )
             response.raise_for_status()
             commits = response.json()
-
             if not commits:
                 return None
+            return commits[0]["commit"]["committer"]["date"]
 
-            date = commits[0]["commit"]["committer"]["date"]
+        date = retry_call(
+            _fetch,
+            fallback=None,
+            context={"owner": owner, "repo": repo},
+            log=logger,
+        )
+        if date:
             self._cache_set(cache_key, date, ttl_seconds=1800)  # 30 minutes
-            return date
-
-        except RateLimitLowError:
-            return None
-
-        except Exception as e:
-            logger.error(
-                "Error fetching last commit date",
-                extra={"owner": owner, "repo": repo, "error": str(e)},
-            )
-            return None
+        return date
 
     # ─── Issues ────────────────────────────────────────────────────────────────
 
@@ -302,6 +301,14 @@ class GitHubClient:
 
         try:
             self._check_rate_limit()
+        except RateLimitLowError:
+            logger.warning(
+                "Rate limit low — returning cached or empty issues",
+                extra={"owner": owner, "repo": repo, "label": label},
+            )
+            return self._cache_get(cache_key) or []
+
+        def _fetch() -> list:
             response = self._http.get(
                 f"/repos/{owner}/{repo}/issues",
                 params={
@@ -312,8 +319,15 @@ class GitHubClient:
                 },
             )
             response.raise_for_status()
-            issues = response.json()
+            return response.json()
 
+        issues = retry_call(
+            _fetch,
+            fallback=[],
+            context={"owner": owner, "repo": repo, "label": label},
+            log=logger,
+        )
+        if issues:
             self._cache_set(cache_key, issues, ttl_seconds=1800)  # 30 minutes
             logger.info(
                 "Fetched issues from GitHub",
@@ -324,34 +338,7 @@ class GitHubClient:
                     "count": len(issues),
                 },
             )
-            return issues
-
-        except RateLimitLowError:
-            logger.warning(
-                "Rate limit low — returning cached or empty issues",
-                extra={"owner": owner, "repo": repo, "label": label},
-            )
-            # Return whatever is in cache even if stale
-            return self._cache_get(cache_key) or []
-
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                "GitHub API error fetching issues",
-                extra={
-                    "owner": owner,
-                    "repo": repo,
-                    "label": label,
-                    "status": e.response.status_code,
-                },
-            )
-            return []
-
-        except Exception as e:
-            logger.exception(
-                "Unexpected error fetching issues",
-                extra={"owner": owner, "repo": repo, "error": str(e)},
-            )
-            return []
+        return issues
 
     def get_issue_comments(
         self, owner: str, repo: str, issue_number: int, limit: int = 3
