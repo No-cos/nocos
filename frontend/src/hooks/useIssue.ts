@@ -6,6 +6,9 @@
 import { useState, useEffect } from "react";
 import { fetchIssue } from "@/lib/api";
 import type { Issue, Project } from "@/lib/api";
+import { getMockIssue } from "@/lib/mock-data";
+
+const IS_DEV = process.env.NODE_ENV === "development";
 
 export interface IssueDetail extends Issue {
   project: Project;
@@ -50,14 +53,30 @@ export function useIssue(id: string): UseIssueResult {
         }
       } catch (err: unknown) {
         if (cancelled) return;
-        // 404 from the API means the issue doesn't exist or is inactive —
-        // show a not-found state rather than a generic error.
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("404") || msg.toLowerCase().includes("not found")) {
-          setNotFound(true);
+
+        if (IS_DEV) {
+          // Backend not running — look up issue from mock data
+          const mockIssue = getMockIssue(id);
+          if (mockIssue) {
+            console.warn(
+              "[Nocos dev] Backend unavailable — using mock data for issue:",
+              id
+            );
+            setData(mockIssue);
+          } else {
+            // ID not found in mock data — show not found state
+            setNotFound(true);
+          }
         } else {
-          console.error("Failed to fetch issue:", err);
-          setError("Could not load this task. Please try again.");
+          // 404 from the API means the issue doesn't exist or is inactive —
+          // show a not-found state rather than a generic error.
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("404") || msg.toLowerCase().includes("not found")) {
+            setNotFound(true);
+          } else {
+            console.error("Failed to fetch issue:", err);
+            setError("Could not load this task. Please try again.");
+          }
         }
       } finally {
         if (!cancelled) setIsLoading(false);
