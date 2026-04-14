@@ -43,6 +43,10 @@ class IssueCreateRequest(BaseModel):
     """
     Request body for manually posting a task (maintainer submission).
     Validated by Pydantic before any business logic runs.
+
+    Note: description_original is never exposed publicly — only description_display
+    is returned in API responses (SKILLS.md §16). The raw description submitted here
+    becomes description_original; description_display may be AI-enhanced.
     """
     github_repo_url: str = Field(
         ...,
@@ -57,6 +61,12 @@ class IssueCreateRequest(BaseModel):
     )
     contribution_type: str
     is_paid: bool = False
+    paid_amount: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Optional bounty/payment description (e.g. '$50 bounty'). "
+                    "Stored as a label on the task so contributors can see it on the card.",
+    )
     difficulty: Optional[str] = None
     github_issue_url: Optional[str] = None
 

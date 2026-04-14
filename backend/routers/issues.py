@@ -295,13 +295,19 @@ def create_issue(body: IssueCreateRequest, db: Session = Depends(get_db)) -> dic
     }
     enriched = enrich_issue(issue_dict, repo_description=project.description or "")
 
+    # If the maintainer specified a paid amount, record it as a label so
+    # contributors can see the bounty value on the card (e.g. "$50 bounty").
+    task_labels: list[str] = []
+    if body.is_paid and body.paid_amount:
+        task_labels.append(body.paid_amount)
+
     task = Task(
         project_id=project.id,
         title=body.title,
         description_original=body.description,
         description_display=enriched["description_display"],
         is_ai_generated=enriched["is_ai_generated"],
-        labels=[],
+        labels=task_labels,
         contribution_type=body.contribution_type,
         is_paid=body.is_paid,
         difficulty=body.difficulty,

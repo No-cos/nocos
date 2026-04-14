@@ -150,6 +150,62 @@ export async function fetchProject(id: string): Promise<Project> {
   return response.data;
 }
 
+// ─── Repo Preview (Post a Task form) ──────────────────────────────────────────
+
+export interface RepoPreview {
+  name: string;
+  avatar_url: string;
+  description: string;
+}
+
+/**
+ * Fetch lightweight project info for a GitHub repo URL.
+ * Called by the Post a Task form when the maintainer blurs the Repo URL field.
+ * Maps to GET /api/v1/projects/preview?url={url}.
+ *
+ * @param url - Full GitHub repo URL (e.g. https://github.com/org/repo)
+ * @returns Project name, avatar URL, and description
+ */
+export async function fetchRepoPreview(url: string): Promise<RepoPreview> {
+  const response = await apiFetch<{ success: boolean; data: RepoPreview }>(
+    `/api/v1/projects/preview?url=${encodeURIComponent(url)}`
+  );
+  return response.data;
+}
+
+// ─── Manual Task Submission ────────────────────────────────────────────────────
+
+export interface TaskSubmitData {
+  github_repo_url: string;
+  title: string;
+  description: string;
+  contribution_type: string;
+  is_paid: boolean;
+  paid_amount?: string;
+  difficulty?: string;
+  github_issue_url?: string;
+}
+
+/**
+ * Submit a manually posted task from the Post a Task form.
+ * Maps to POST /api/v1/issues.
+ *
+ * @param data - Validated form data from the Post a Task page
+ * @returns The created task ID and a confirmation message
+ */
+export async function submitTask(
+  data: TaskSubmitData
+): Promise<{ id: string; message: string }> {
+  const response = await apiFetch<{
+    success: boolean;
+    data: { id: string; message: string };
+  }>("/api/v1/issues", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return response.data;
+}
+
 /**
  * Subscribe an email address to the weekly digest.
  * Maps directly to POST /api/v1/subscribe.
