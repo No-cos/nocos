@@ -197,6 +197,8 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
           padding: "16px",
           marginTop: "12px",
           marginBottom: "12px",
+          height: "120px",
+          overflow: "hidden",
         }}
       >
         <p
@@ -206,10 +208,8 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
             lineHeight: 1.6,
             color: "var(--color-text-secondary)",
             margin: 0,
-            flexGrow: 1,
-            // 3-line clamp
             display: "-webkit-box",
-            WebkitLineClamp: 3,
+            WebkitLineClamp: 4,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
           }}
