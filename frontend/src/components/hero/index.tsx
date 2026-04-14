@@ -40,7 +40,7 @@ export function Hero() {
             margin: "0 0 20px",
           }}
         >
-          Open source needs<br />more than code.
+          Open source needs<br />more than <span style={{ color: "#C6C9D3" }}>code.</span>
         </h1>
 
         {/* Sub-headline */}
