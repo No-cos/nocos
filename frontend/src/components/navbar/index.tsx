@@ -139,27 +139,8 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
             flexShrink: 0,
           }}
         >
-          <Link
-            href="/signin"
-            style={{
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: 500,
-              fontSize: "0.9375rem",
-              color: "var(--color-text-secondary)",
-              textDecoration: "none",
-              transition: "color 150ms ease",
-            }}
-            onMouseEnter={(e) =>
-              ((e.target as HTMLElement).style.color =
-                "var(--color-text-primary)")
-            }
-            onMouseLeave={(e) =>
-              ((e.target as HTMLElement).style.color =
-                "var(--color-text-secondary)")
-            }
-          >
-            Sign In
-          </Link>
+          {/* Sign In — hidden for now, re-enable when auth is ready */}
+          {/* <Link href="/signin" ...>Sign In</Link> */}
 
           {/* Dark mode toggle — sun in dark mode, moon in light mode */}
           <button
@@ -239,21 +220,8 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
                 </Link>
               </li>
             ))}
-            <li style={{ paddingTop: "12px" }}>
-              <Link
-                href="/signin"
-                onClick={() => setMenuOpen(false)}
-                style={{
-                  fontFamily: "'Inter', sans-serif",
-                  fontWeight: 500,
-                  fontSize: "1rem",
-                  color: "var(--color-text-secondary)",
-                  textDecoration: "none",
-                }}
-              >
-                Sign In
-              </Link>
-            </li>
+            {/* Sign In — hidden for now, re-enable when auth is ready */}
+            {/* <li style={{ paddingTop: "12px" }}><Link href="/signin">Sign In</Link></li> */}
           </ul>
         </div>
       )}
