@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Issues older than this are considered stale and should not be imported.
 # This matches the 14-day staleness rule in features.md Section 7.
-MAX_ISSUE_AGE_DAYS = 14
+MAX_ISSUE_AGE_DAYS = 30
 
 # Labels that indicate purely code-specific work.
 # An issue with ONLY these labels has no non-technical contribution angle.
