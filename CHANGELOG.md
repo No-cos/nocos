@@ -10,6 +10,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Full landing page UI: Navbar, Hero, Category Marquee, Filter Bar, Search Bar, Issue Grid, Subscribe Section, Footer
 - Monorepo scaffold: `/frontend` (Next.js 14 + Tailwind CSS) and `/backend` (FastAPI)
 - CSS design token system with full light and dark mode variables
 - FastAPI application entry point with versioned routers and CORS config
