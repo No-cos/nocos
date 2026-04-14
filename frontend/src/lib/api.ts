@@ -105,6 +105,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 interface FetchIssuesOptions {
   page?: number;
   limit?: number;
+  types?: string;
   type?: string;
   search?: string;
   paid?: boolean;
