@@ -54,6 +54,9 @@ export default function HomePage() {
             maxWidth: "var(--content-max-width)",
             margin: "0 auto",
             padding: "100px 24px 100px",
+            overflow: "hidden",
+            boxSizing: "border-box",
+            width: "100%",
           }}
           aria-label="Issue discovery"
         >
