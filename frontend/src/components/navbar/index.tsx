@@ -18,14 +18,12 @@ import Link from "next/link";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import type { NavbarProps } from "./types";
 
-// Nav links — commented out until pages are ready
-// const DEFAULT_LINKS = [
-//   { label: "Tasks", href: "/" },
-//   { label: "Resources", href: "/resources" },
-//   { label: "Events", href: "/events" },
-//   { label: "Blog", href: "/blog" },
-// ];
-const DEFAULT_LINKS: { label: string; href: string }[] = [];
+const DEFAULT_LINKS: { label: string; href: string }[] = [
+  { label: "Tasks", href: "/" },
+  { label: "Resources", href: "/resources" },
+  { label: "Events", href: "/events" },
+  { label: "Blog", href: "/blog" },
+];
 
 export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
   const { theme, toggleTheme } = useDarkMode();
