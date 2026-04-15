@@ -69,18 +69,23 @@ export function Tag({
       : "var(--color-border)"
     : getTagColor(type);
 
+  // Active fill: applied when an interactive tag (has onClick) is selected.
+  // Purple background + white text signals the selected state clearly.
+  // Issue card tags never have onClick so they are never affected by this.
+  const isActiveSelected = !!onClick && selected;
+
   const baseStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
-    backgroundColor: "var(--color-surface)",
-    color: "var(--color-text-primary)",
-    border: `1.5px solid ${borderColor}`,
+    backgroundColor: isActiveSelected ? "var(--color-cta-primary)" : "var(--color-surface)",
+    color: isActiveSelected ? "#ffffff" : "var(--color-text-primary)",
+    border: `1.5px solid ${isActiveSelected ? "var(--color-cta-primary)" : borderColor}`,
     borderRadius: "999px",
     fontFamily: "'Inter', sans-serif",
     fontWeight: 500,
     lineHeight: 1.4,
     whiteSpace: "nowrap",
-    transition: "border-color 150ms ease",
+    transition: "background-color 150ms ease, border-color 150ms ease, color 150ms ease",
     cursor: onClick ? "pointer" : "default",
     opacity: filterMode ? 1 : selected ? 1 : 0.85,
     userSelect: "none",
