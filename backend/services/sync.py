@@ -524,6 +524,48 @@ def run_scrape(extra_repos: list[str], session_factory) -> dict:
                     )
                     continue
 
+            # ── Cleanup: re-activate tasks incorrectly marked closed ─────────────
+            # Tasks may have been hidden as "closed" by an old buggy sync that
+            # couldn't find the issue in page-1 of a large repo's issue list.
+            # Verify each one with get_single_issue() and restore those that
+            # are still open on GitHub.
+            hidden_closed = (
+                session.query(Task)
+                .filter(Task.is_active == False, Task.hidden_reason == "closed")
+                .all()
+            )
+            reactivated = 0
+            for task in hidden_closed:
+                if not task.github_issue_number or not task.project:
+                    continue
+                try:
+                    issue = github_client.get_single_issue(
+                        task.project.github_owner,
+                        task.project.github_repo,
+                        task.github_issue_number,
+                    )
+                    if issue and issue.get("state") == "open":
+                        task.is_active = True
+                        task.hidden_reason = None
+                        task.hidden_at = None
+                        session.add(task)
+                        reactivated += 1
+                        total_new_tasks += 1
+                except RateLimitLowError:
+                    logger.warning("Rate limit hit during closed-task cleanup — stopping")
+                    break
+                except Exception as e:
+                    logger.error(
+                        "Error checking hidden task — skipping",
+                        extra={"task_id": str(task.id), "error": str(e)},
+                    )
+
+            if reactivated:
+                logger.info(
+                    "Re-activated incorrectly closed tasks",
+                    extra={"count": reactivated},
+                )
+
             session.commit()
 
         except Exception as e:
