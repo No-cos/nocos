@@ -33,32 +33,54 @@ const ACTIVITY_LABELS: Record<string, string> = {
 };
 
 /**
- * Strip markdown syntax from a description string so raw text like
- * "### Tested versions" or "**bold**" never shows up on a card.
+ * Strip markdown syntax from a description string so raw GitHub issue text
+ * never shows up with headings, bold markers, blockquotes, etc. on a card.
  *
  * Rules applied (in order):
- *  1. Remove ATX headings (# / ## / ###… lines)
- *  2. Remove bold/italic markers (** and *)
- *  3. Strip leading dashes from list items (- item → item)
- *  4. Collapse runs of whitespace / newlines into a single space
+ *  1.  Drop entire lines that start with # (ATX headings)
+ *  2.  Drop entire lines that are only dashes or equals (setext headings / HRs)
+ *  3.  Drop entire lines that start with > (blockquotes)
+ *  4.  Remove image markdown: ![alt](url) → ""
+ *  5.  Unwrap links: [text](url) → text
+ *  6.  Remove inline code: `code` → code
+ *  7.  Remove bold (**text** / __text__) → text
+ *  8.  Remove italic (*text* / _text_) → text
+ *  9.  Strip leading list markers (- / * / 1.) at line start
+ *  10. Collapse all newlines and runs of whitespace into a single space
+ *  11. Trim and cap at 200 characters with a trailing ellipsis if needed
  */
 function stripMarkdown(text: string): string {
-  return text
-    // Remove heading lines (any number of leading #s)
-    .replace(/^#{1,6}\s+/gm, "")
-    // Remove bold (**text** or __text__)
+  const cleaned = text
+    // 1. Remove ATX heading lines (lines that start with one or more #)
+    .replace(/^#{1,6}[^\n]*/gm, "")
+    // 2. Remove setext-style heading underlines and horizontal rules
+    //    (lines made entirely of dashes, equals, or asterisks)
+    .replace(/^[-=*]{2,}\s*$/gm, "")
+    // 3. Remove blockquote lines
+    .replace(/^>+[^\n]*/gm, "")
+    // 4. Remove image markdown entirely
+    .replace(/!\[.*?\]\(.*?\)/g, "")
+    // 5. Unwrap links — keep only the display text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    // 6. Remove inline code backticks (single or triple), keep the inner text
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`([^`]+)`/g, "$1")
+    // 7. Remove bold markers
     .replace(/\*\*(.*?)\*\*/g, "$1")
     .replace(/__(.*?)__/g, "$1")
-    // Remove italic (*text* or _text_) — single delimiters
+    // 8. Remove italic markers (must come after bold so ** isn't half-matched)
     .replace(/\*(.*?)\*/g, "$1")
     .replace(/_(.*?)_/g, "$1")
-    // Strip leading dash + space from list items
-    .replace(/^[-*]\s+/gm, "")
-    // Collapse multiple newlines / carriage returns into a space
+    // 9. Strip list item markers at the start of a line
+    .replace(/^[\s]*[-*+]\s+/gm, "")
+    .replace(/^[\s]*\d+\.\s+/gm, "")
+    // 10. Collapse newlines and excess whitespace into a single space
     .replace(/[\r\n]+/g, " ")
-    // Collapse multiple spaces into one
     .replace(/\s{2,}/g, " ")
     .trim();
+
+  // 11. Cap at 200 characters so cards never show a wall of text
+  return cleaned.length > 200 ? cleaned.slice(0, 197) + "…" : cleaned;
 }
 
 export function IssueCard({ issue, onClick }: IssueCardProps) {
