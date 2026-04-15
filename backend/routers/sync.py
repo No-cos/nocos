@@ -113,6 +113,37 @@ def backfill_descriptions() -> dict:
     }
 
 
+@router.post("/trigger-gitlab")
+def trigger_gitlab_sync() -> dict:
+    """
+    Manually trigger a full GitLab scrape.
+
+    Calls the same service used by the 2-hour scheduled job so you can
+    kick off a scrape immediately without waiting for the next interval.
+    Returns a stats envelope with counts from the run.
+    """
+    logger.info("Manual GitLab sync trigger received")
+    try:
+        from services.gitlab_sync import run_gitlab_scrape
+        stats = run_gitlab_scrape(SessionLocal)
+    except Exception as exc:
+        logger.exception("GitLab sync trigger failed")
+        return {"success": False, "error": type(exc).__name__, "detail": str(exc)}
+
+    return {
+        "success": True,
+        "data": {
+            "projects_scraped": stats.get("projects_scraped", 0),
+            "new_tasks_added": stats.get("new_tasks_added", 0),
+            "duration_seconds": stats.get("duration_seconds", 0),
+            "message": (
+                f"GitLab sync complete. {stats.get('new_tasks_added', 0)} new task(s) added "
+                f"across {stats.get('projects_scraped', 0)} project(s)."
+            ),
+        },
+    }
+
+
 class SyncTriggerBody(BaseModel):
     """
     Optional request body for POST /sync/trigger.
