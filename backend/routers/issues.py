@@ -4,6 +4,7 @@
 # never appear in any response.
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -16,6 +17,7 @@ from models.task import Task
 from models.project import Project
 from schemas.issue import IssueCreateRequest
 from services.cache import app_cache, TTL_ISSUE_DETAIL, TTL_ISSUE_LIST
+from services.issue_finder.filters import MAX_ISSUE_AGE_DAYS
 
 logger = logging.getLogger(__name__)
 
@@ -88,12 +90,20 @@ def list_issues(
     Returns:
         Envelope: { success, data: [IssueResponse], meta: { page, total, per_page } }
     """
+    # Issues older than MAX_ISSUE_AGE_DAYS are excluded at query time so that
+    # pagination counts are accurate and no page ever returns fewer items than
+    # requested. Manually posted tasks (github_created_at IS NULL) always pass.
+    age_cutoff = datetime.now(tz=timezone.utc) - timedelta(days=MAX_ISSUE_AGE_DAYS)
+
     query = (
         db.query(Task)
         .join(Task.project)
         .options(joinedload(Task.project))
         .filter(Task.is_active == True)
         .filter(Project.is_active == True)
+        .filter(
+            (Task.github_created_at == None) | (Task.github_created_at >= age_cutoff)
+        )
     )
 
     # Contribution type filter — supports both ?type= and ?types= params
