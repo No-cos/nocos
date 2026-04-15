@@ -88,6 +88,9 @@ body {
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent any child element from creating horizontal page overflow */
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /* Headlines use Plus Jakarta Sans */
