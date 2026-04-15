@@ -72,6 +72,13 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
         // Fixed height ensures every card in the grid is the same size
         // regardless of how long the title or description content is.
         height: "320px",
+        // alignSelf: "start" prevents CSS Grid's default "stretch" behaviour
+        // from overriding the explicit height and making this card as tall as
+        // the tallest sibling in the same grid row.
+        alignSelf: "start",
+        // overflow: hidden clips any child content that still exceeds the box,
+        // preventing visual bleed below the card border.
+        overflow: "hidden",
         cursor: onClick ? "pointer" : "default",
         transition: "transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease",
         outline: "none",
