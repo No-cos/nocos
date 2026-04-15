@@ -17,6 +17,7 @@ import { useState } from "react";
 import { Tag, ALL_CONTRIBUTION_TYPES } from "@/components/ui/tag";
 import { subscribeEmail } from "@/lib/api";
 import { isValidEmail, formatContributionType } from "@/lib/utils";
+import { useInView } from "@/hooks/use-in-view";
 
 type State = "idle" | "loading" | "success" | "error";
 
@@ -26,6 +27,7 @@ export function SubscribeSection() {
   const [showTagPrefs, setShowTagPrefs] = useState(false);
   const [state, setState] = useState<State>("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  const { ref, inView } = useInView<HTMLElement>();
 
   function toggleTag(type: string) {
     setTagPrefs((prev) =>
@@ -59,6 +61,8 @@ export function SubscribeSection() {
 
   return (
     <section
+      ref={ref}
+      className={`reveal${inView ? " visible" : ""}`}
       style={{
         backgroundColor: "var(--color-surface)",
         borderTop: "1px solid var(--color-border)",

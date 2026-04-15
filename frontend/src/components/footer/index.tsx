@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Footer component — site-wide footer for Nocos.
  *
@@ -12,6 +14,7 @@
  */
 
 import Link from "next/link";
+import { useInView } from "@/hooks/use-in-view";
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
@@ -48,8 +51,12 @@ const SOCIAL_LINKS = [
 ];
 
 export function Footer() {
+  const { ref, inView } = useInView<HTMLElement>();
+
   return (
     <footer
+      ref={ref}
+      className={`reveal${inView ? " visible" : ""}`}
       style={{
         backgroundColor: "var(--color-bg)",
         borderTop: "1px solid var(--color-border)",

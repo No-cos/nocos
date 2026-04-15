@@ -138,14 +138,29 @@ export function IssueGrid({ activeTypes, search }: IssueGridProps) {
   }
 
   // ── Data ──────────────────────────────────────────────────────────────────
+  // resultsKey changes whenever filters/search/page change so cards re-mount
+  // and the entrance animation replays for each new result set.
+  const resultsKey = `${activeTypes.join(",")}-${search}-${effectivePage}`;
+
+  function navigateToTask(id: string) {
+    // View Transitions API — fall back to plain push in unsupported browsers (Firefox)
+    if (typeof document !== "undefined" && "startViewTransition" in document) {
+      (document as Document & { startViewTransition: (cb: () => void) => void })
+        .startViewTransition(() => router.push(`/tasks/${id}`));
+    } else {
+      router.push(`/tasks/${id}`);
+    }
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
       <div className="issue-grid-layout">
-        {data.data.map((issue) => (
+        {data.data.map((issue, index) => (
           <IssueCard
-            key={issue.id}
+            key={`${resultsKey}-${issue.id}`}
             issue={issue}
-            onClick={() => router.push(`/tasks/${issue.id}`)}
+            animationIndex={index}
+            onClick={() => navigateToTask(issue.id)}
           />
         ))}
       </div>

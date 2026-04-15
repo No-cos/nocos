@@ -22,4 +22,6 @@ export interface IssueCardProps {
   issue: IssueCardIssue;
   /** Called when the card is clicked — typically navigates to /tasks/[id] */
   onClick?: () => void;
+  /** Position in the grid — drives the entrance stagger delay (0-based, capped at 5) */
+  animationIndex?: number;
 }

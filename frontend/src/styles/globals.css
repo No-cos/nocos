@@ -349,6 +349,65 @@ h1, h2, h3 {
   100% { background-position: -200% 0; }
 }
 
+/* ─── Card entrance stagger ─────────────────────────────────────────────────── */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.card-enter-anim {
+  animation: card-enter 300ms ease both;
+}
+
+/* ─── Page transitions (View Transitions API) ───────────────────────────────── */
+@keyframes vt-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes vt-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+::view-transition-old(root) {
+  animation: 180ms ease vt-fade-out;
+}
+::view-transition-new(root) {
+  animation: 220ms ease vt-fade-in;
+}
+
+/* ─── Scroll-triggered reveal ───────────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 500ms ease, transform 500ms ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ─── Reduced motion — disable all non-essential animations ─────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .card-enter-anim {
+    animation: none;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+  .reveal,
+  .reveal.visible {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 /* ─── Task detail — CTA wrapper ─────────────────────────────────────────────── */
 .cta-wrapper {
   max-width: 720px;

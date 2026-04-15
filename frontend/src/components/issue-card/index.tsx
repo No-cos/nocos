@@ -100,7 +100,7 @@ function stripMarkdown(text: string): string {
   return cleaned.length > 200 ? cleaned.slice(0, 197) + "…" : cleaned;
 }
 
-export function IssueCard({ issue, onClick }: IssueCardProps) {
+export function IssueCard({ issue, onClick, animationIndex }: IssueCardProps) {
   // Build a deduplicated tag list — contribution_type sometimes appears
   // again in the labels array (GitHub label matches the type name), which
   // would show the same tag twice. Set eliminates exact duplicates.
@@ -118,8 +118,15 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
   const cleanDescription = stripMarkdown(issue.description_display);
   const title = cleanTitle(issue.title);
 
+  // Stagger delay: 50ms per card, capped at 300ms (index 5)
+  const staggerDelay =
+    animationIndex !== undefined
+      ? `${Math.min(animationIndex, 5) * 50}ms`
+      : undefined;
+
   return (
     <article
+      className={animationIndex !== undefined ? "card-enter-anim" : undefined}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -148,6 +155,7 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
         cursor: onClick ? "pointer" : "default",
         transition: "transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease",
         outline: "none",
+        animationDelay: staggerDelay,
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget;
