@@ -36,7 +36,12 @@ from models.project import Project
 from models.task import Task
 from services.issue_finder.enricher import enrich_issues
 from services.issue_finder.filters import apply_filters
+from services.issue_finder.scraper import OPEN_SOURCE_LICENSES
 from services.retry import retry_call
+
+# Pre-compute uppercase set for case-insensitive matching against GitLab's
+# lowercase license keys (e.g. "mit", "apache-2.0" → "MIT", "APACHE-2.0").
+_OPEN_SOURCE_LICENSES_UPPER = frozenset(lic.upper() for lic in OPEN_SOURCE_LICENSES)
 
 logger = logging.getLogger(__name__)
 
@@ -499,8 +504,26 @@ def _scrape_label(label: str) -> list[dict]:
                 )
                 continue
 
-            # Skip archived projects — same rule as the GitHub scraper
+            # Skip archived projects — no contributions possible
             if raw_project.get("archived", False):
+                seen_projects[project_id] = None  # Cache skip so other labels skip fast
+                continue
+
+            # Skip projects without a recognised open source license.
+            # GitLab returns a "license" object with a lowercase "key" field
+            # (e.g. "mit", "apache-2.0"). We normalise to uppercase before
+            # checking against OPEN_SOURCE_LICENSES.
+            license_obj = raw_project.get("license") or {}
+            license_key = (license_obj.get("key") or "").upper() if license_obj else ""
+            if not license_key or license_key not in _OPEN_SOURCE_LICENSES_UPPER:
+                logger.info(
+                    "Skipping GitLab project — no open source license",
+                    extra={
+                        "project_id": project_id,
+                        "license": license_obj.get("key") if license_obj else None,
+                    },
+                )
+                seen_projects[project_id] = None  # Cache skip so other labels skip fast
                 continue
 
             label_names: list[str] = raw_issue.get("labels", [])

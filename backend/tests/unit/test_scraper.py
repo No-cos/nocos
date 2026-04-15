@@ -60,7 +60,9 @@ from services.issue_finder.scraper import (  # noqa: E402
     map_labels_to_contribution_type,
     scrape_issues_for_label,
     scrape_repo,
+    build_project_data,
     NON_CODE_LABELS,
+    OPEN_SOURCE_LICENSES,
 )
 
 
@@ -415,3 +417,125 @@ class TestScrapeRepoDeduplication:
         project_data, _ = scrape_repo("owner", "repo")
 
         assert project_data is _VALID_PROJECT
+
+
+# ===========================================================================
+# build_project_data — open source licence enforcement
+# ===========================================================================
+
+def _repo_data(
+    *,
+    spdx_id: str | None = "MIT",
+    private: bool = False,
+    archived: bool = False,
+) -> dict:
+    """
+    Build a minimal GitHub repo API response dict for licence-check tests.
+    """
+    return {
+        "full_name": "owner/repo",
+        "html_url": "https://github.com/owner/repo",
+        "description": "Test repo",
+        "homepage": None,
+        "owner": {"avatar_url": ""},
+        "private": private,
+        "archived": archived,
+        "license": {"spdx_id": spdx_id} if spdx_id else None,
+    }
+
+
+class TestBuildProjectDataLicenceEnforcement:
+    """
+    Tests for the open source licence gate in build_project_data().
+
+    Every project ingested into Nocos must have a recognised SPDX licence.
+    Private and archived repos are also rejected before any issue scraping
+    begins — there is no point fetching labels for repos contributors cannot
+    legally or practically contribute to.
+    """
+
+    @patch("services.issue_finder.scraper.github_client")
+    def test_mit_licence_is_accepted(self, mock_gc):
+        """
+        MIT is the most common open source licence — it must pass the gate
+        so Nocos can index the vast majority of GitHub projects.
+        """
+        mock_gc.get_repo.return_value = _repo_data(spdx_id="MIT")
+        mock_gc.get_last_commit_date.return_value = None
+
+        result = build_project_data("owner", "repo")
+
+        assert result is not None
+
+    @patch("services.issue_finder.scraper.github_client")
+    def test_apache_licence_is_accepted(self, mock_gc):
+        mock_gc.get_repo.return_value = _repo_data(spdx_id="Apache-2.0")
+        mock_gc.get_last_commit_date.return_value = None
+
+        assert build_project_data("owner", "repo") is not None
+
+    @patch("services.issue_finder.scraper.github_client")
+    def test_null_licence_is_rejected(self, mock_gc):
+        """
+        A repo with no licence field (null) is all-rights-reserved by default.
+        Contributors cannot legally submit code so it must be skipped.
+        """
+        mock_gc.get_repo.return_value = _repo_data(spdx_id=None)
+
+        assert build_project_data("owner", "repo") is None
+
+    @patch("services.issue_finder.scraper.github_client")
+    def test_noassertion_licence_is_rejected(self, mock_gc):
+        """
+        NOASSERTION means GitHub detected a file but could not identify the
+        licence. The legal status is unknown — must be rejected to protect
+        contributors from inadvertently working on proprietary code.
+        """
+        mock_gc.get_repo.return_value = _repo_data(spdx_id="NOASSERTION")
+
+        assert build_project_data("owner", "repo") is None
+
+    @patch("services.issue_finder.scraper.github_client")
+    def test_unknown_proprietary_licence_is_rejected(self, mock_gc):
+        """
+        An SPDX ID that is not in the allowlist (e.g. a custom or proprietary
+        identifier) must be rejected — the allowlist is the gate, not a
+        blocklist of known bad values.
+        """
+        mock_gc.get_repo.return_value = _repo_data(spdx_id="Proprietary-1.0")
+
+        assert build_project_data("owner", "repo") is None
+
+    @patch("services.issue_finder.scraper.github_client")
+    def test_private_repo_is_rejected(self, mock_gc):
+        """
+        Private repos cannot be contributed to by the public — they must
+        be skipped regardless of licence.
+        """
+        mock_gc.get_repo.return_value = _repo_data(spdx_id="MIT", private=True)
+
+        assert build_project_data("owner", "repo") is None
+
+    @patch("services.issue_finder.scraper.github_client")
+    def test_archived_repo_is_rejected(self, mock_gc):
+        """
+        Archived repos are frozen — GitHub disables issue creation and
+        pull requests. No point showing contributors tasks they cannot submit.
+        """
+        mock_gc.get_repo.return_value = _repo_data(spdx_id="MIT", archived=True)
+
+        assert build_project_data("owner", "repo") is None
+
+    @patch("services.issue_finder.scraper.github_client")
+    def test_all_allowlisted_licences_are_accepted(self, mock_gc):
+        """
+        Every licence in OPEN_SOURCE_LICENSES must pass the gate individually.
+        This prevents future edits that accidentally add a licence string that
+        does not match the comparison logic.
+        """
+        mock_gc.get_last_commit_date.return_value = None
+
+        for spdx in OPEN_SOURCE_LICENSES:
+            mock_gc.get_repo.return_value = _repo_data(spdx_id=spdx)
+            result = build_project_data("owner", "repo")
+            assert result is not None, f"Licence {spdx!r} should be accepted"

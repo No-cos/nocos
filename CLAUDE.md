@@ -95,5 +95,14 @@ Before committing any code, mentally check:
 
 ---
 
+## 10. Open Source Enforcement
+
+- Every project ingested into Nocos MUST have a recognised open source license.
+- Never ingest issues from repos with no license, a proprietary license, or NOASSERTION.
+- Never ingest issues from private or archived repositories.
+- The `OPEN_SOURCE_LICENSES` allowlist in `backend/services/issue_finder/scraper.py` is the source of truth — do not bypass it.
+
+---
+
 These rules exist to protect the product, its users, and the infrastructure.
 When in doubt, be more conservative — security first.

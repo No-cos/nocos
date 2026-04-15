@@ -15,6 +15,17 @@ from services.github_client import github_client, RateLimitLowError
 
 logger = logging.getLogger(__name__)
 
+# Recognised open source SPDX license identifiers.
+# Only repos with a license whose spdx_id is in this set will be ingested.
+# NOASSERTION and null licenses are always rejected — no exceptions.
+# This set is the single source of truth for both the GitHub and GitLab scrapers.
+OPEN_SOURCE_LICENSES = frozenset({
+    "MIT", "Apache-2.0", "GPL-2.0", "GPL-3.0", "LGPL-2.1", "LGPL-3.0",
+    "AGPL-3.0", "MPL-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC",
+    "CC-BY-4.0", "CC-BY-SA-4.0", "CC0-1.0", "Unlicense", "EUPL-1.2",
+    "CDDL-1.0", "EPL-1.0", "EPL-2.0", "WTFPL", "Artistic-2.0",
+})
+
 # All labels we actively search for on GitHub.
 # Organised by contribution type — the filter module narrows results further.
 # Catch-all labels (help-wanted, good-first-issue, etc.) are included but
@@ -232,6 +243,32 @@ def build_project_data(owner: str, repo_name: str) -> Optional[dict]:
         logger.warning(
             "Could not fetch repo metadata — skipping",
             extra={"owner": owner, "repo": repo_name},
+        )
+        return None
+
+    # Reject private repos — Nocos is strictly an open source platform
+    if repo_data.get("private", False):
+        logger.info(
+            "Skipping repo — private repository",
+            extra={"owner": owner, "repo": repo_name},
+        )
+        return None
+
+    # Reject archived repos — no contributions are possible on archived repos
+    if repo_data.get("archived", False):
+        logger.info(
+            "Skipping repo — archived repository",
+            extra={"owner": owner, "repo": repo_name},
+        )
+        return None
+
+    # Reject repos without a recognised open source license
+    license_obj = repo_data.get("license") or {}
+    spdx_id: Optional[str] = license_obj.get("spdx_id") if license_obj else None
+    if not spdx_id or spdx_id == "NOASSERTION" or spdx_id not in OPEN_SOURCE_LICENSES:
+        logger.info(
+            "Skipping repo — no open source license",
+            extra={"owner": owner, "repo": repo_name, "license": spdx_id},
         )
         return None
 
