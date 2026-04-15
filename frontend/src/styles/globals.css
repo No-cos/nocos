@@ -17,6 +17,9 @@
 
 /* ─── Light Mode (Default) ──────────────────────────────────────────────────── */
 :root {
+  /* Navbar */
+  --navbar-height: 64px;
+
   /* Backgrounds */
   --color-bg: #FFFFFF;
   --color-surface: #F9F9F9;
@@ -248,12 +251,25 @@ h1, h2, h3 {
   }
 }
 
+/* ─── Page content offset for fixed navbar ──────────────────────────────────── */
+main {
+  padding-top: var(--navbar-height);
+}
+
 /* ─── Navbar — responsive visibility ────────────────────────────────────────── */
 .nav-links-desktop { display: flex; }
 .hamburger-btn { display: none; }
 @media (max-width: 767px) {
   .nav-links-desktop { display: none !important; }
   .hamburger-btn { display: flex !important; }
+}
+
+/* ─── Navbar — scroll shadow ─────────────────────────────────────────────────── */
+.navbar-scrolled {
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.08);
+}
+html.dark .navbar-scrolled {
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.4);
 }
 
 /* ─── Post page — two-column layout ─────────────────────────────────────────── */

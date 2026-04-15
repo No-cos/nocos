@@ -69,18 +69,26 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
+  const bgColor =
+    theme === "dark"
+      ? "rgba(12, 12, 12, 0.90)"
+      : "rgba(255, 255, 255, 0.90)";
+
   return (
     <header
       ref={menuRef}
+      className={scrolled ? "navbar-scrolled" : undefined}
       style={{
-        position: "sticky",
+        position: "fixed",
         top: 0,
-        zIndex: 50,
-        backgroundColor: "var(--color-bg)",
-        borderBottom: scrolled
-          ? "1px solid var(--color-border)"
-          : "1px solid transparent",
-        transition: "border-color 150ms ease, background 200ms ease",
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        backgroundColor: bgColor,
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        borderBottom: "1px solid var(--color-border)",
+        transition: "box-shadow 150ms ease, background 200ms ease",
       }}
     >
       <nav
