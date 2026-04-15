@@ -28,11 +28,16 @@ export function relativeTime(dateString: string): string {
  * Used on issue cards and the task detail page to show when an issue was posted.
  *
  * Resolutions (in order of precedence):
- *   < 1 hour  → "X minutes ago"
- *   < 24 hrs  → "X hours ago"
- *   < 7 days  → "X days ago"
- *   < 4 weeks → "X weeks ago"
- *   otherwise → "X months ago"
+ *   < 1 minute  → "just now"
+ *   1–59 min    → "X minutes ago"
+ *   1–23 hrs    → "X hours ago"
+ *   1–6 days    → "X days ago"
+ *   1–3 weeks   → "X weeks ago"
+ *   1–11 months → "X months ago"
+ *   1+ years    → "X years ago"
+ *
+ * Each threshold floors the value and only uses that unit when the result
+ * is ≥ 1, so "0 months ago" or "0 minutes ago" can never appear.
  *
  * @param dateString - ISO 8601 datetime string (e.g. "2024-03-15T10:30:00Z")
  * @returns Human-readable relative time string
@@ -40,30 +45,37 @@ export function relativeTime(dateString: string): string {
 export function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
+  const diffMs = Math.max(0, now.getTime() - date.getTime());
 
   const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  if (diffMinutes < 60) {
-    return diffMinutes <= 1 ? "1 minute ago" : `${diffMinutes} minutes ago`;
-  }
+  if (diffMinutes < 1) return "just now";
 
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  if (diffHours < 24) {
-    return diffHours === 1 ? "1 hour ago" : `${diffHours} hours ago`;
+  if (diffHours < 1) {
+    return diffMinutes === 1 ? "1 minute ago" : `${diffMinutes} minutes ago`;
   }
 
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays < 7) {
-    return diffDays === 1 ? "1 day ago" : `${diffDays} days ago`;
+  if (diffDays < 1) {
+    return diffHours === 1 ? "1 hour ago" : `${diffHours} hours ago`;
   }
 
   const diffWeeks = Math.floor(diffDays / 7);
-  if (diffWeeks < 4) {
-    return diffWeeks === 1 ? "1 week ago" : `${diffWeeks} weeks ago`;
+  if (diffWeeks < 1) {
+    return diffDays === 1 ? "1 day ago" : `${diffDays} days ago`;
   }
 
   const diffMonths = Math.floor(diffDays / 30);
-  return diffMonths === 1 ? "1 month ago" : `${diffMonths} months ago`;
+  if (diffMonths < 1) {
+    return diffWeeks === 1 ? "1 week ago" : `${diffWeeks} weeks ago`;
+  }
+
+  const diffYears = Math.floor(diffDays / 365);
+  if (diffYears < 1) {
+    return diffMonths === 1 ? "1 month ago" : `${diffMonths} months ago`;
+  }
+
+  return diffYears === 1 ? "1 year ago" : `${diffYears} years ago`;
 }
 
 /**
