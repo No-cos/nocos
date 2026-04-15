@@ -127,18 +127,9 @@ def _sync_single_task(task: Task, session: Session) -> None:
         return
 
     try:
-        # Fetch the current issue state from GitHub (or cache)
-        issues = github_client.get_issues_by_label(
-            owner=owner,
-            repo=repo,
-            label="",       # Passing empty label to get all issues is not ideal;
-            page=1,         # ideally we'd call GET /repos/{owner}/{repo}/issues/{number}
-        )
-        # Since github_client doesn't have a single-issue endpoint yet, we rely
-        # on the cached issues list and fall through if the issue is not found.
-        # TODO: add get_single_issue() to github_client in Phase 6 — see #issue-gh-single
-        issue_map = {i["number"]: i for i in issues if isinstance(i.get("number"), int)}
-        current = issue_map.get(task.github_issue_number)
+        # Fetch the exact issue by number — avoids the false-closed bug where
+        # page-1 of all issues misses the specific issue in large repos.
+        current = github_client.get_single_issue(owner, repo, task.github_issue_number)
 
     except RateLimitLowError:
         # Rate limit hit — skip this task and try again next cycle

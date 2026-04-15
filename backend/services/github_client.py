@@ -341,6 +341,57 @@ class GitHubClient:
             )
         return issues
 
+    def get_single_issue(
+        self, owner: str, repo: str, issue_number: int
+    ) -> Optional[dict]:
+        """
+        Fetch a single issue by its number from a GitHub repository.
+
+        Used by the freshness sync to check an individual issue's current state
+        without having to page through all open issues (which breaks for large repos).
+        Cached for 30 minutes.
+
+        Args:
+            owner:        Repository owner
+            repo:         Repository name
+            issue_number: GitHub issue number (not the global ID)
+
+        Returns:
+            GitHub issue object as a dict, or None if not found or on error.
+        """
+        cache_key = f"single_issue:{owner}:{repo}:{issue_number}"
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            self._check_rate_limit()
+        except RateLimitLowError:
+            logger.warning(
+                "Rate limit low — skipping single issue fetch",
+                extra={"owner": owner, "repo": repo, "issue_number": issue_number},
+            )
+            return None
+
+        def _fetch() -> Optional[dict]:
+            response = self._http.get(
+                f"/repos/{owner}/{repo}/issues/{issue_number}"
+            )
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return response.json()
+
+        issue = retry_call(
+            _fetch,
+            fallback=None,
+            context={"owner": owner, "repo": repo, "issue_number": issue_number},
+            log=logger,
+        )
+        if issue:
+            self._cache_set(cache_key, issue, ttl_seconds=1800)
+        return issue
+
     def get_issue_comments(
         self, owner: str, repo: str, issue_number: int, limit: int = 3
     ) -> list:

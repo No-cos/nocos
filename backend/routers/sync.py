@@ -15,7 +15,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from db import SessionLocal
-from services.sync import run_scrape, run_sync
+from services.sync import run_scrape
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +60,7 @@ def trigger_sync(body: Optional[SyncTriggerBody] = None) -> dict:
         extra={"extra_repos": extra_repos},
     )
 
-    # Pass 1: scrape new issues (and seed new projects if repos were provided)
     scrape_stats = run_scrape(extra_repos, SessionLocal)
-
-    # Pass 2: freshen existing tasks / projects
-    run_sync(SessionLocal)
 
     return {
         "success": True,
