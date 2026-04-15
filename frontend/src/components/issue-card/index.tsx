@@ -69,6 +69,9 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
         display: "flex",
         flexDirection: "column",
         gap: "12px",
+        // Fixed height ensures every card in the grid is the same size
+        // regardless of how long the title or description content is.
+        height: "320px",
         cursor: onClick ? "pointer" : "default",
         transition: "transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease",
         outline: "none",
@@ -165,7 +168,8 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
       </h3>
 
       {/* ── Tags ─────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+      {/* No wrapping — tags stay on one line. Max 3 shown + "+N" badge. */}
+      <div style={{ display: "flex", flexWrap: "nowrap", gap: "6px", overflow: "hidden" }}>
         {visibleTags.map((type) => (
           <Tag key={type} type={type} size="sm" filterMode={false} />
         ))}
@@ -190,14 +194,17 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
       </div>
 
       {/* ── Description ──────────────────────────────────────────────── */}
+      {/* flexGrow: 1 makes this section absorb all remaining vertical space
+          so the card stays at its fixed height regardless of other content.
+          minHeight: 0 is required for flex children to shrink below their
+          natural content size in older browsers. */}
       <div
         style={{
           backgroundColor: "var(--color-bg)",
           borderRadius: "8px",
           padding: "16px",
-          marginTop: "12px",
-          marginBottom: "12px",
-          height: "120px",
+          flexGrow: 1,
+          minHeight: 0,
           overflow: "hidden",
         }}
       >
@@ -209,7 +216,7 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
             color: "var(--color-text-secondary)",
             margin: 0,
             display: "-webkit-box",
-            WebkitLineClamp: 4,
+            WebkitLineClamp: 3,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
           }}
