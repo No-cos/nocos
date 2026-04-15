@@ -14,7 +14,7 @@
 import Link from "next/link";
 
 const NAV_LINKS = [
-  { label: "Tasks", href: "/" },
+  { label: "Home", href: "/" },
   { label: "Resources", href: "/resources" },
   { label: "Events", href: "/events" },
   { label: "Blog", href: "/blog" },
