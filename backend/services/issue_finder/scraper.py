@@ -15,51 +15,180 @@ from services.github_client import github_client, RateLimitLowError
 
 logger = logging.getLogger(__name__)
 
-# All labels we actively scrape. These cover the full range of non-code
-# contribution types that Nocos surfaces to contributors.
-# We cast a wide net here — the filter module narrows it down.
+# All labels we actively search for on GitHub.
+# Organised by contribution type — the filter module narrows results further.
+# Catch-all labels (help-wanted, good-first-issue, etc.) are included but
+# filters.py applies extra scrutiny: they must have a non-code signal in the
+# title/body to pass through.
 NON_CODE_LABELS = [
+    # ── Design ──────────────────────────────────────────────────────────────
     "design",
+    "needs-design",
     "ux",
     "ui",
-    "a11y",
+    "ui/ux",
+    "design-needed",
+    "figma",
+    "visual",
     "accessibility",
+    "a11y",
+    # ── Documentation ───────────────────────────────────────────────────────
     "documentation",
     "docs",
-    "translation",
-    "research",
-    "community",
+    "needs-docs",
+    "improve-docs",
+    "good-docs",
+    "doc-fix",
+    "writing",
     "content",
+    "technical-writing",
+    # ── Translation ─────────────────────────────────────────────────────────
+    "translation",
+    "i18n",
+    "l10n",
+    "localization",
+    "internationalisation",
+    "needs-translation",
+    "language",
+    # ── Research ────────────────────────────────────────────────────────────
+    "research",
+    "user-research",
+    "needs-research",
+    "investigation",
+    "discovery",
+    # ── Community ───────────────────────────────────────────────────────────
+    "community",
+    "community-management",
+    "outreach",
+    "social",
+    "devrel",
+    "developer-relations",
+    "advocacy",
+    # ── Marketing ───────────────────────────────────────────────────────────
     "marketing",
+    "growth",
+    "content-marketing",
+    "seo",
+    "copywriting",
+    # ── Social Media ────────────────────────────────────────────────────────
+    "social-media",
+    "twitter",
+    "announcement",
+    # ── Project Management ──────────────────────────────────────────────────
+    "project-management",
+    "planning",
+    "roadmap",
+    "triage",
+    "needs-triage",
+    "organisation",
+    # ── PR Review ───────────────────────────────────────────────────────────
+    "needs-review",
     "pr-review",
+    "review-needed",
+    "review-requested",
+    # ── Data & Analytics ────────────────────────────────────────────────────
+    "analytics",
     "data",
+    "metrics",
+    "tracking",
+    "data-analysis",
+    # ── General catch-alls (extra scrutiny applied in filters.py) ───────────
+    "help-wanted",
     "good-first-issue",
+    "first-timers-only",
+    "hacktoberfest",
+    "up-for-grabs",
+    "contributions-welcome",
+    "beginner-friendly",
+    "low-hanging-fruit",
 ]
 
-# Mapping from GitHub label name to our contribution_type enum.
+# Mapping from GitHub label name → contribution_type enum value.
 # Labels are lowercased before lookup — GitHub labels are case-insensitive
 # but repos use inconsistent casing (e.g. "Design" vs "design").
+# Only valid contribution_type_enum values may appear as dict values.
 LABEL_TO_CONTRIBUTION_TYPE: dict[str, str] = {
+    # Design
     "design": "design",
+    "needs-design": "design",
     "ux": "design",
     "ui": "design",
-    "a11y": "design",
+    "ui/ux": "design",
+    "design-needed": "design",
+    "figma": "design",
+    "visual": "design",
     "accessibility": "design",
+    "a11y": "design",
+    # Documentation
     "documentation": "documentation",
     "docs": "documentation",
-    "translation": "translation",
-    "research": "research",
-    "community": "community",
+    "needs-docs": "documentation",
+    "improve-docs": "documentation",
+    "good-docs": "documentation",
+    "doc-fix": "documentation",
+    "writing": "documentation",
     "content": "documentation",
+    "technical-writing": "documentation",
+    # Translation
+    "translation": "translation",
+    "i18n": "translation",
+    "l10n": "translation",
+    "localization": "translation",
+    "internationalisation": "translation",
+    "needs-translation": "translation",
+    "language": "translation",
+    # Research
+    "research": "research",
+    "user-research": "research",
+    "needs-research": "research",
+    "investigation": "research",
+    "discovery": "research",
+    # Community
+    "community": "community",
+    "community-management": "community",
+    "outreach": "community",
+    "social": "community",
+    "devrel": "community",
+    "developer-relations": "community",
+    "advocacy": "community",
+    # Marketing
     "marketing": "marketing",
+    "growth": "marketing",
+    "content-marketing": "marketing",
+    "seo": "marketing",
+    "copywriting": "marketing",
+    # Social Media
+    "social-media": "social_media",
+    "twitter": "social_media",
+    "announcement": "social_media",
+    # Project Management
+    "project-management": "project_management",
+    "planning": "project_management",
+    "roadmap": "project_management",
+    "triage": "project_management",
+    "needs-triage": "project_management",
+    "organisation": "project_management",
+    # PR Review
+    "needs-review": "pr_review",
     "pr-review": "pr_review",
+    "review-needed": "pr_review",
+    "review-requested": "pr_review",
+    # Data & Analytics
+    "analytics": "data_analytics",
     "data": "data_analytics",
+    "metrics": "data_analytics",
+    "tracking": "data_analytics",
+    "data-analysis": "data_analytics",
+    # Catch-alls — contribution type resolved from other labels at query time
+    "help-wanted": "other",
     "good-first-issue": "other",
+    "first-timers-only": "other",
+    "hacktoberfest": "other",
+    "up-for-grabs": "other",
+    "contributions-welcome": "other",
+    "beginner-friendly": "other",
+    "low-hanging-fruit": "other",
 }
-
-# Labels that indicate code-only work — used in the filter module.
-# An issue with ONLY these labels has no non-code contribution angle.
-CODE_ONLY_LABELS = {"bug", "feature", "enhancement", "wontfix", "duplicate"}
 
 
 def map_labels_to_contribution_type(labels: list[str]) -> str:

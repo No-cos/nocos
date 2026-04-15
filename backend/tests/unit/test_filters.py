@@ -15,7 +15,7 @@
 #   standard library, so no mocking is required here.
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -44,21 +44,29 @@ class _FakeConfig:
 _fake_config_module.config = _FakeConfig()
 sys.modules.setdefault("config", _fake_config_module)
 
-# Stub out heavy third-party packages that the github_client imports so we
-# don't need them installed in the test environment.
-for _mod in ("httpx", "redis", "dotenv", "python_dotenv"):
-    sys.modules.setdefault(_mod, types.ModuleType(_mod))
-
 # Provide a dotenv stub with the load_dotenv no-op that config.py calls at
 # import time.
 _dotenv_stub = sys.modules.setdefault("dotenv", types.ModuleType("dotenv"))
 _dotenv_stub.load_dotenv = lambda *a, **kw: None  # type: ignore[attr-defined]
+
+# Stub httpx — must expose .Client so GitHubClient.__init__ can instantiate
+# the HTTP client at module level without a real network stack.
+_httpx_stub = sys.modules.setdefault("httpx", types.ModuleType("httpx"))
+_httpx_stub.Client = MagicMock(return_value=MagicMock())  # type: ignore[attr-defined]
+
+# Stub redis — must expose .Redis so the cache layer can be constructed.
+_redis_stub = sys.modules.setdefault("redis", types.ModuleType("redis"))
+_redis_stub.Redis = MagicMock(return_value=MagicMock())  # type: ignore[attr-defined]
 
 # Now we can safely import the modules under test.
 from services.issue_finder.filters import (  # noqa: E402
     should_hide_issue,
     is_too_old,
     is_closed,
+    has_only_code_labels,
+    has_code_title_prefix,
+    is_catch_all_only_without_signal,
+    should_include_issue,
     MAX_ISSUE_AGE_DAYS,
 )
 from services.issue_finder.scraper import (  # noqa: E402
@@ -88,21 +96,20 @@ class TestShouldHideIssue:
     it is too old or because it is closed.
     """
 
-    def test_open_issue_older_than_14_days_is_hidden(self):
+    def test_open_issue_older_than_max_age_is_hidden(self):
         """
-        An open issue created 15 days ago exceeds the MAX_ISSUE_AGE_DAYS=14
-        cutoff and must be hidden so stale opportunities are not shown.
+        An open issue older than MAX_ISSUE_AGE_DAYS must be hidden so stale
+        opportunities are not shown to contributors.
         """
         issue = {
-            "github_created_at": _days_ago(15),
+            "github_created_at": _days_ago(MAX_ISSUE_AGE_DAYS + 1),
             "status": "open",
         }
         assert should_hide_issue(issue) is True
 
-    def test_open_issue_within_14_days_is_not_hidden(self):
+    def test_open_issue_within_max_age_is_not_hidden(self):
         """
-        An open issue created only 5 days ago is fresh and must remain
-        visible — returning True here would incorrectly remove valid work.
+        An open issue well within the age window must remain visible.
         """
         issue = {
             "github_created_at": _days_ago(5),
@@ -209,3 +216,221 @@ class TestMapLabelsToContributionType:
         # "design" comes first — should win over "docs"
         result = map_labels_to_contribution_type(["design", "docs"])
         assert result == "design"
+
+
+# ===========================================================================
+# has_only_code_labels — expanded CODE_ONLY_LABELS
+# ===========================================================================
+
+class TestHasOnlyCodeLabels:
+    """
+    Tests for the expanded CODE_ONLY_LABELS set introduced in the label
+    expansion.  Verifies that the new entries (refactor, ci, backend, etc.)
+    are treated as code-only when they appear alone, and that they do NOT
+    suppress an issue that also carries a non-code label.
+    """
+
+    def test_new_code_label_alone_is_filtered(self):
+        """
+        Labels added in the expansion (refactor, ci, backend, frontend, etc.)
+        must each be treated as code-only when they are the only label present.
+        """
+        for label in ("refactor", "ci", "backend", "frontend", "api",
+                      "database", "dependencies", "chore", "performance",
+                      "security", "regression", "crash", "testing"):
+            assert has_only_code_labels([label]), f"Expected {label!r} to be code-only"
+
+    def test_code_label_plus_design_is_not_filtered(self):
+        """
+        A 'bug' + 'design' combination has a non-code angle — the design
+        work matters even if there is also a code-related label.
+        """
+        assert has_only_code_labels(["bug", "design"]) is False
+
+    def test_code_label_plus_docs_is_not_filtered(self):
+        assert has_only_code_labels(["enhancement", "documentation"]) is False
+
+
+# ===========================================================================
+# has_code_title_prefix
+# ===========================================================================
+
+class TestHasCodeTitlePrefix:
+    """
+    Tests for filters.has_code_title_prefix(title: str) -> bool.
+
+    Conventional commit prefixes like "fix:", "feat:", "refactor:" indicate
+    code-only work.  Issues with these titles must be rejected before
+    reaching the database.
+    """
+
+    def test_fix_prefix_is_rejected(self):
+        assert has_code_title_prefix("fix: null pointer in login service") is True
+
+    def test_feat_prefix_is_rejected(self):
+        assert has_code_title_prefix("feat: add OAuth2 support") is True
+
+    def test_refactor_prefix_is_rejected(self):
+        assert has_code_title_prefix("refactor: extract auth helper") is True
+
+    def test_chore_prefix_is_rejected(self):
+        assert has_code_title_prefix("chore: update dependencies") is True
+
+    def test_ci_prefix_is_rejected(self):
+        assert has_code_title_prefix("ci: fix flaky test pipeline") is True
+
+    def test_perf_prefix_is_rejected(self):
+        assert has_code_title_prefix("perf: cache database queries") is True
+
+    def test_normal_title_is_allowed(self):
+        assert has_code_title_prefix("Improve the onboarding documentation") is False
+
+    def test_design_title_is_allowed(self):
+        assert has_code_title_prefix("Design new landing page hero") is False
+
+    def test_case_insensitive(self):
+        """Prefix check must be case-insensitive (some authors write Fix:)."""
+        assert has_code_title_prefix("Fix: broken header layout") is True
+        assert has_code_title_prefix("FEAT: new dashboard") is True
+
+    def test_empty_title_is_allowed(self):
+        assert has_code_title_prefix("") is False
+
+    def test_prefix_substring_in_middle_is_allowed(self):
+        """
+        'fix:' appearing mid-title must not trigger the filter — only a
+        leading prefix matters.
+        """
+        assert has_code_title_prefix("Please fix: the broken link in docs") is False
+
+
+# ===========================================================================
+# is_catch_all_only_without_signal
+# ===========================================================================
+
+class TestIsCatchAllOnlyWithoutSignal:
+    """
+    Tests for filters.is_catch_all_only_without_signal(issue: dict) -> bool.
+
+    Issues that carry only catch-all labels (help-wanted, good-first-issue,
+    etc.) must contain a non-code signal in their title or body to pass.
+    Issues with a specific non-code label always pass regardless of body.
+    """
+
+    def _issue(self, labels, title="", body=""):
+        return {"labels": labels, "title": title, "body": body,
+                "github_issue_id": 1, "github_created_at": None, "state": "open"}
+
+    def test_help_wanted_with_design_signal_is_allowed(self):
+        issue = self._issue(
+            labels=["help-wanted"],
+            title="Help wanted: redesign the onboarding flow in Figma",
+        )
+        assert is_catch_all_only_without_signal(issue) is False
+
+    def test_help_wanted_with_docs_in_body_is_allowed(self):
+        issue = self._issue(
+            labels=["help-wanted"],
+            body="We need someone to update the README and improve documentation.",
+        )
+        assert is_catch_all_only_without_signal(issue) is False
+
+    def test_help_wanted_bug_fix_title_is_rejected(self):
+        issue = self._issue(
+            labels=["help-wanted"],
+            title="Memory leak when loading images",
+            body="The app crashes after 5 minutes due to a memory leak.",
+        )
+        assert is_catch_all_only_without_signal(issue) is True
+
+    def test_good_first_issue_no_signal_is_rejected(self):
+        issue = self._issue(
+            labels=["good-first-issue"],
+            title="Fix the broken build step",
+            body="The CI pipeline fails on node 18.",
+        )
+        assert is_catch_all_only_without_signal(issue) is True
+
+    def test_specific_non_code_label_always_passes(self):
+        """
+        An issue with a specific non-code label (docs, design, etc.) must
+        always pass this filter even if it also has a catch-all label and
+        no signal words in the body.
+        """
+        issue = self._issue(labels=["good-first-issue", "documentation"])
+        assert is_catch_all_only_without_signal(issue) is False
+
+    def test_design_label_alone_passes(self):
+        issue = self._issue(labels=["design"], title="Update button styles")
+        assert is_catch_all_only_without_signal(issue) is False
+
+    def test_catch_all_plus_bug_without_signal_is_rejected(self):
+        """
+        'help-wanted' + 'bug' is a code-only combination — the 'bug' label
+        doesn't save it since bug is a code-only label, not a non-code label.
+        """
+        issue = self._issue(
+            labels=["help-wanted", "bug"],
+            title="Segfault when parsing JSON",
+        )
+        assert is_catch_all_only_without_signal(issue) is True
+
+    def test_hacktoberfest_with_translation_body_is_allowed(self):
+        issue = self._issue(
+            labels=["hacktoberfest"],
+            body="We need help with translation of the Spanish locale files.",
+        )
+        assert is_catch_all_only_without_signal(issue) is False
+
+
+# ===========================================================================
+# should_include_issue — integration of all filters
+# ===========================================================================
+
+class TestShouldIncludeIssueIntegration:
+    """
+    End-to-end tests for should_include_issue confirming the three new
+    filters work together with the existing age and closed checks.
+    """
+
+    def _issue(self, labels=None, title="", body="",
+               state="open", days_ago=1):
+        from datetime import datetime, timedelta, timezone
+        created = datetime.now(tz=timezone.utc) - timedelta(days=days_ago)
+        return {
+            "labels": labels or [],
+            "title": title,
+            "body": body,
+            "state": state,
+            "github_created_at": created,
+            "github_issue_id": 99,
+        }
+
+    def test_design_issue_passes(self):
+        assert should_include_issue(self._issue(
+            labels=["design"], title="Redesign the hero section"
+        )) is True
+
+    def test_fix_prefix_is_blocked(self):
+        assert should_include_issue(self._issue(
+            labels=["design"], title="fix: correct icon colours"
+        )) is False
+
+    def test_help_wanted_code_body_is_blocked(self):
+        assert should_include_issue(self._issue(
+            labels=["help-wanted"],
+            title="Fix the null reference",
+            body="App throws NullPointerException on startup.",
+        )) is False
+
+    def test_help_wanted_docs_body_passes(self):
+        assert should_include_issue(self._issue(
+            labels=["help-wanted"],
+            title="Help improve our documentation",
+            body="The README needs clearer installation instructions.",
+        )) is True
+
+    def test_all_code_labels_blocked(self):
+        assert should_include_issue(self._issue(
+            labels=["bug", "regression"], title="Regression in auth"
+        )) is False

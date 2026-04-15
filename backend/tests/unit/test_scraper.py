@@ -43,11 +43,17 @@ class _FakeConfig:
 _fake_config_mod.config = _FakeConfig()  # type: ignore[attr-defined]
 sys.modules.setdefault("config", _fake_config_mod)
 
-for _name in ("httpx", "redis"):
-    sys.modules.setdefault(_name, types.ModuleType(_name))
-
 _dotenv = sys.modules.setdefault("dotenv", types.ModuleType("dotenv"))
 _dotenv.load_dotenv = lambda *a, **kw: None  # type: ignore[attr-defined]
+
+# Stub httpx — must expose .Client so GitHubClient.__init__ can instantiate
+# the HTTP client at module level without a real network stack.
+_httpx_stub = sys.modules.setdefault("httpx", types.ModuleType("httpx"))
+_httpx_stub.Client = MagicMock(return_value=MagicMock())  # type: ignore[attr-defined]
+
+# Stub redis — must expose .Redis so the cache layer can be constructed.
+_redis_stub = sys.modules.setdefault("redis", types.ModuleType("redis"))
+_redis_stub.Redis = MagicMock(return_value=MagicMock())  # type: ignore[attr-defined]
 
 # Import the module under test after stubs are in place.
 from services.issue_finder.scraper import (  # noqa: E402
@@ -174,6 +180,45 @@ class TestMapLabelsAdditionalMappings:
         rather than falling through to 'other'.
         """
         assert map_labels_to_contribution_type(["translation"]) == "translation"
+
+    def test_new_design_labels_map_to_design(self):
+        """New labels added in the expansion must resolve to the correct type."""
+        for label in ("needs-design", "figma", "ui/ux", "design-needed", "visual"):
+            assert map_labels_to_contribution_type([label]) == "design", label
+
+    def test_new_documentation_labels_map_correctly(self):
+        for label in ("needs-docs", "improve-docs", "technical-writing", "writing"):
+            assert map_labels_to_contribution_type([label]) == "documentation", label
+
+    def test_new_translation_labels_map_correctly(self):
+        for label in ("i18n", "l10n", "localization", "needs-translation", "language"):
+            assert map_labels_to_contribution_type([label]) == "translation", label
+
+    def test_new_community_labels_map_correctly(self):
+        for label in ("outreach", "devrel", "developer-relations", "advocacy"):
+            assert map_labels_to_contribution_type([label]) == "community", label
+
+    def test_social_media_labels_map_to_social_media(self):
+        for label in ("social-media", "twitter", "announcement"):
+            assert map_labels_to_contribution_type([label]) == "social_media", label
+
+    def test_project_management_labels_map_correctly(self):
+        for label in ("project-management", "planning", "roadmap", "triage", "needs-triage"):
+            assert map_labels_to_contribution_type([label]) == "project_management", label
+
+    def test_pr_review_variants_map_correctly(self):
+        for label in ("needs-review", "review-needed", "review-requested"):
+            assert map_labels_to_contribution_type([label]) == "pr_review", label
+
+    def test_analytics_labels_map_to_data_analytics(self):
+        for label in ("analytics", "metrics", "tracking", "data-analysis"):
+            assert map_labels_to_contribution_type([label]) == "data_analytics", label
+
+    def test_catch_all_labels_map_to_other(self):
+        """Catch-all labels have no specific type — they resolve to 'other'."""
+        for label in ("help-wanted", "first-timers-only", "up-for-grabs",
+                      "contributions-welcome", "beginner-friendly", "low-hanging-fruit"):
+            assert map_labels_to_contribution_type([label]) == "other", label
 
 
 # ===========================================================================

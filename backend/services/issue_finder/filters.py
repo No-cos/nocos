@@ -4,35 +4,224 @@
 # It is deliberately stateless — it takes dicts and returns bools,
 # which makes every function straightforward to unit test.
 #
-# Three filters are applied in sequence by should_include_issue():
-#   1. Code-only label check — skip issues that only have dev-specific labels
-#   2. Age check           — skip issues older than 14 days (features.md §7)
-#   3. Status check        — skip issues that are already closed
+# Filters applied in sequence by should_include_issue():
+#   1.  Code-only label check  — skip issues whose every label is code-specific
+#   1b. Code title prefix      — skip "fix:", "feat:", "refactor:", etc. titles
+#   1c. Catch-all without signal — skip help-wanted/good-first-issue issues
+#                                  that contain no non-code contribution signals
+#   2.  Age check              — skip issues older than MAX_ISSUE_AGE_DAYS
+#   3.  Status check           — skip closed issues
 
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 # Issues older than this are considered stale and should not be imported.
-# This matches the 14-day staleness rule in features.md Section 7.
 MAX_ISSUE_AGE_DAYS = 30
 
 # Labels that indicate purely code-specific work.
-# An issue with ONLY these labels has no non-technical contribution angle.
+# An issue whose EVERY label is in this set has no non-code contribution angle.
 # If a code label appears alongside a non-code label (e.g. "bug" + "design")
-# we still include it — the design work is what we care about.
+# the issue still passes — the design work is what Nocos cares about.
 CODE_ONLY_LABELS = frozenset({
     "bug",
     "feature",
     "enhancement",
+    "refactor",
+    "performance",
+    "security",
+    "regression",
+    "crash",
+    "build",
+    "ci",
+    "tests",
+    "testing",
+    "backend",
+    "frontend",
+    "api",
+    "database",
+    "dependencies",
+    "dependencies-update",
+    "chore",
     "wontfix",
     "duplicate",
     "invalid",
     "question",
-    "help wanted",  # Ambiguous — included here as a conservative default
 })
+
+# Conventional commit title prefixes — unambiguously code-only work.
+CODE_TITLE_PREFIXES: tuple[str, ...] = (
+    "fix:",
+    "feat:",
+    "refactor:",
+    "chore:",
+    "build:",
+    "ci:",
+    "perf:",
+    "test:",
+    "tests:",
+)
+
+# Labels that invite contributors without specifying the type of work.
+# Issues with ONLY these labels (and no specific non-code label) must contain
+# a non-code signal in the title or body to be ingested.
+CATCH_ALL_LABELS = frozenset({
+    "help-wanted",
+    "help wanted",
+    "good-first-issue",
+    "good first issue",
+    "first-timers-only",
+    "hacktoberfest",
+    "up-for-grabs",
+    "contributions-welcome",
+    "beginner-friendly",
+    "low-hanging-fruit",
+})
+
+# Labels that explicitly signal non-code contribution work.
+# An issue with any of these passes the catch-all filter regardless of body.
+SPECIFIC_NON_CODE_LABELS = frozenset({
+    # Design
+    "design", "needs-design", "ux", "ui", "ui/ux", "design-needed",
+    "figma", "visual", "accessibility", "a11y",
+    # Documentation
+    "documentation", "docs", "needs-docs", "improve-docs", "doc-fix",
+    "good-docs", "writing", "content", "technical-writing",
+    # Translation
+    "translation", "i18n", "l10n", "localization", "internationalisation",
+    "needs-translation", "language",
+    # Research
+    "research", "user-research", "needs-research", "investigation", "discovery",
+    # Community
+    "community", "community-management", "outreach", "social", "devrel",
+    "developer-relations", "advocacy",
+    # Marketing
+    "marketing", "growth", "content-marketing", "seo", "copywriting",
+    # Social Media
+    "social-media", "twitter", "announcement",
+    # Project Management
+    "project-management", "planning", "roadmap",
+    "triage", "needs-triage", "organisation",
+    # PR Review
+    "needs-review", "pr-review", "review-needed", "review-requested",
+    # Data & Analytics
+    "analytics", "data", "metrics", "tracking", "data-analysis",
+})
+
+# Individual words that indicate non-code contribution work.
+# Checked at word boundaries so short terms like "ux" don't fire inside
+# longer words like "luxury" or "auxiliary".
+_NON_CODE_SIGNAL_WORDS = frozenset({
+    # Design
+    "design", "figma", "ux", "accessibility", "a11y", "mockup",
+    "wireframe", "visual", "prototype", "icon", "logo", "typography",
+    # Documentation
+    "documentation", "docs", "readme", "wiki", "writing", "content",
+    "markdown", "tutorial", "guide", "changelog", "glossary",
+    # Translation
+    "translation", "translate", "locale", "localization", "i18n", "l10n",
+    # Community
+    "community", "outreach", "advocacy", "devrel", "newsletter", "announcement",
+    # Marketing
+    "marketing", "seo", "copywriting", "campaign",
+    # Research
+    "research", "survey", "usability", "feedback", "interview",
+    # Analytics
+    "analytics", "metrics", "tracking", "dashboard",
+    # General non-code signals
+    "podcast", "blog", "conference", "meetup", "event",
+})
+
+# Multi-word phrases checked via substring match.
+_NON_CODE_SIGNAL_PHRASES = frozenset({
+    "user research",
+    "technical writing",
+    "social media",
+    "developer relations",
+    "content marketing",
+    "data analysis",
+    "open graph",
+    "style guide",
+})
+
+
+def has_code_title_prefix(title: str) -> bool:
+    """
+    Return True if the issue title starts with a conventional commit prefix.
+
+    Titles like "fix: null pointer in auth", "feat: add OAuth" are
+    unambiguously code work and must never appear on Nocos.
+
+    Args:
+        title: The issue title string
+
+    Returns:
+        True if the title starts with a code-only conventional commit prefix.
+    """
+    lower = title.lower().strip()
+    return any(lower.startswith(prefix) for prefix in CODE_TITLE_PREFIXES)
+
+
+def _has_non_code_signal(issue: dict) -> bool:
+    """
+    Return True if the title or body contains a non-code contribution signal.
+
+    Used as a secondary gate for issues that carry only catch-all labels
+    (e.g. "help-wanted" with no other labels). Looks for specific non-code
+    keywords at word boundaries to avoid false positives from substrings.
+
+    Args:
+        issue: Structured issue dict with "title" and "body" keys
+
+    Returns:
+        True if at least one non-code signal word or phrase was found.
+    """
+    title = (issue.get("title") or "").lower()
+    body = (issue.get("body") or "").lower()
+    text = title + " " + body
+
+    for phrase in _NON_CODE_SIGNAL_PHRASES:
+        if phrase in text:
+            return True
+
+    words = frozenset(re.findall(r"\b\w+\b", text))
+    return bool(words & _NON_CODE_SIGNAL_WORDS)
+
+
+def is_catch_all_only_without_signal(issue: dict) -> bool:
+    """
+    Return True if the issue should be rejected because it only carries
+    catch-all labels and its title/body contains no non-code signals.
+
+    Decision tree:
+    - Any SPECIFIC_NON_CODE_LABELS present → allow (return False)
+    - Labels are only CATCH_ALL_LABELS + CODE_ONLY_LABELS (or empty) →
+        allow only if a non-code signal word/phrase is present in title/body
+    - Otherwise → allow (return False)
+
+    This prevents "help-wanted: fix the memory leak" from being ingested
+    while still passing "help-wanted: improve the translation workflow".
+
+    Args:
+        issue: Structured issue dict with "labels", "title", and "body" keys
+
+    Returns:
+        True if the issue should be rejected.
+    """
+    normalised = {lbl.lower() for lbl in issue.get("labels", [])}
+
+    # Any specific non-code label → always allow
+    if normalised & SPECIFIC_NON_CODE_LABELS:
+        return False
+
+    # Only catch-alls (possibly mixed with code-only labels) → require signal
+    if normalised.issubset(CATCH_ALL_LABELS | CODE_ONLY_LABELS):
+        return not _has_non_code_signal(issue)
+
+    return False
 
 
 def has_only_code_labels(labels: list[str]) -> bool:
@@ -120,11 +309,28 @@ def should_include_issue(issue: dict) -> bool:
     labels = issue.get("labels", [])
     created_at = issue.get("github_created_at")
     state = issue.get("state", "open")
+    title = issue.get("title", "")
 
-    # Filter 1: code-only labels
+    # Filter 1: all labels are code-specific
     if has_only_code_labels(labels):
         logger.debug(
             "Filtered — code-only labels",
+            extra={"issue_id": issue.get("github_issue_id"), "labels": labels},
+        )
+        return False
+
+    # Filter 1b: title starts with a conventional commit code prefix
+    if has_code_title_prefix(title):
+        logger.debug(
+            "Filtered — code-only title prefix",
+            extra={"issue_id": issue.get("github_issue_id"), "title": title},
+        )
+        return False
+
+    # Filter 1c: catch-all labels only and no non-code signal in title/body
+    if is_catch_all_only_without_signal(issue):
+        logger.debug(
+            "Filtered — catch-all labels with no non-code signal",
             extra={"issue_id": issue.get("github_issue_id"), "labels": labels},
         )
         return False
