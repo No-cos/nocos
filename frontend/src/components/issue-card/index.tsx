@@ -3,15 +3,14 @@
 /**
  * IssueCard component — displays a single issue in the discovery grid.
  *
- * Layout:
- * - Top: project avatar (32×32 circle) + project name
- * - Title: Plus Jakarta Sans, medium weight, 2-line clamp
- * - Tags: max 3 visible, "+N" overflow badge if more
- * - Description: Inter, secondary text color, 3-line clamp
- * - Bottom row left:  activity status dot + label
- * - Bottom row right: ✨ badge if is_ai_generated
+ * Layout (all sections have explicit sizes so the card is always 380px tall):
+ * - Project row: avatar (32×32) + project name
+ * - Title: Plus Jakarta Sans, 2-line clamp
+ * - Tags: single row, no wrapping, max 3 + "+N" badge
+ * - Description box: fixed 100px, 4-line clamp, markdown stripped before display
+ * - Bottom row: activity dot + label (left), ✨ badge (right), pinned via marginTop: auto
  *
- * Hover: card lifts 2px, border becomes visible.
+ * Hover: card lifts 2px, border darkens.
  * All colours via CSS variables — no hardcoded hex values.
  *
  * @param issue   - Issue data from the Nocos API
@@ -33,6 +32,35 @@ const ACTIVITY_LABELS: Record<string, string> = {
   inactive: "Inactive",
 };
 
+/**
+ * Strip markdown syntax from a description string so raw text like
+ * "### Tested versions" or "**bold**" never shows up on a card.
+ *
+ * Rules applied (in order):
+ *  1. Remove ATX headings (# / ## / ###… lines)
+ *  2. Remove bold/italic markers (** and *)
+ *  3. Strip leading dashes from list items (- item → item)
+ *  4. Collapse runs of whitespace / newlines into a single space
+ */
+function stripMarkdown(text: string): string {
+  return text
+    // Remove heading lines (any number of leading #s)
+    .replace(/^#{1,6}\s+/gm, "")
+    // Remove bold (**text** or __text__)
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    // Remove italic (*text* or _text_) — single delimiters
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/_(.*?)_/g, "$1")
+    // Strip leading dash + space from list items
+    .replace(/^[-*]\s+/gm, "")
+    // Collapse multiple newlines / carriage returns into a space
+    .replace(/[\r\n]+/g, " ")
+    // Collapse multiple spaces into one
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 export function IssueCard({ issue, onClick }: IssueCardProps) {
   // We cap tags at 3 on the card to avoid visual clutter.
   // The full tag list is shown on the detail page.
@@ -46,6 +74,9 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
   const activityColor = getActivityColor(issue.project.activity_status);
   const activityLabel =
     ACTIVITY_LABELS[issue.project.activity_status] ?? issue.project.activity_status;
+
+  // Strip markdown before rendering — raw syntax (###, **, -) must never show
+  const cleanDescription = stripMarkdown(issue.description_display);
 
   return (
     <article
@@ -68,16 +99,11 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
         padding: "20px",
         display: "flex",
         flexDirection: "column",
-        gap: "12px",
-        // Fixed height ensures every card in the grid is the same size
-        // regardless of how long the title or description content is.
-        height: "320px",
-        // alignSelf: "start" prevents CSS Grid's default "stretch" behaviour
-        // from overriding the explicit height and making this card as tall as
-        // the tallest sibling in the same grid row.
-        alignSelf: "start",
-        // overflow: hidden clips any child content that still exceeds the box,
-        // preventing visual bleed below the card border.
+        // Fixed height — every card is exactly this tall regardless of content.
+        // overflow: hidden clips anything that would otherwise bleed out.
+        // No gap here; each child section uses explicit margin/flexShrink instead
+        // so the layout is fully predictable.
+        height: "380px",
         overflow: "hidden",
         cursor: onClick ? "pointer" : "default",
         transition: "transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease",
@@ -102,7 +128,7 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
       }}
     >
       {/* ── Project info row ─────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0, marginBottom: "12px" }}>
         <div
           style={{
             width: "32px",
@@ -156,6 +182,8 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
       </div>
 
       {/* ── Issue title ──────────────────────────────────────────────── */}
+      {/* flexShrink: 0 keeps the title at its natural size (2 clamped lines).
+          Without this the title can be squeezed by siblings in the flex column. */}
       <h3
         style={{
           fontFamily: "'Plus Jakarta Sans', sans-serif",
@@ -164,6 +192,8 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
           lineHeight: 1.4,
           color: "var(--color-text-primary)",
           margin: 0,
+          marginBottom: "10px",
+          flexShrink: 0,
           // 2-line clamp
           display: "-webkit-box",
           WebkitLineClamp: 2,
@@ -175,8 +205,8 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
       </h3>
 
       {/* ── Tags ─────────────────────────────────────────────────────── */}
-      {/* No wrapping — tags stay on one line. Max 3 shown + "+N" badge. */}
-      <div style={{ display: "flex", flexWrap: "nowrap", gap: "6px", overflow: "hidden" }}>
+      {/* No wrapping — tags stay on one line. flexShrink: 0 keeps single row. */}
+      <div style={{ display: "flex", flexWrap: "nowrap", gap: "6px", overflow: "hidden", flexShrink: 0, marginBottom: "12px" }}>
         {visibleTags.map((type) => (
           <Tag key={type} type={type} size="sm" filterMode={false} />
         ))}
@@ -201,17 +231,16 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
       </div>
 
       {/* ── Description ──────────────────────────────────────────────── */}
-      {/* flexGrow: 1 makes this section absorb all remaining vertical space
-          so the card stays at its fixed height regardless of other content.
-          minHeight: 0 is required for flex children to shrink below their
-          natural content size in older browsers. */}
+      {/* Fixed height of 100px + flexShrink: 0 means this box never grows
+          or shrinks regardless of text length. overflow: hidden clips excess.
+          Text is also clamped to 4 lines as a belt-and-braces measure. */}
       <div
         style={{
           backgroundColor: "var(--color-bg)",
           borderRadius: "8px",
-          padding: "16px",
-          flexGrow: 1,
-          minHeight: 0,
+          padding: "12px 14px",
+          height: "100px",
+          flexShrink: 0,
           overflow: "hidden",
         }}
       >
@@ -223,22 +252,25 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
             color: "var(--color-text-secondary)",
             margin: 0,
             display: "-webkit-box",
-            WebkitLineClamp: 3,
+            WebkitLineClamp: 4,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
           }}
         >
-          {issue.description_display}
+          {cleanDescription}
         </p>
       </div>
 
       {/* ── Bottom row: activity + AI badge ──────────────────────────── */}
+      {/* marginTop: auto pushes this row to the bottom of the 380px card,
+          regardless of how much space the sections above occupy. */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           marginTop: "auto",
+          flexShrink: 0,
         }}
       >
         {/* Activity dot + label */}
