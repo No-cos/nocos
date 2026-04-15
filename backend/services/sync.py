@@ -373,18 +373,28 @@ def _ingest_repo_issues(
         repo_description=project_data.get("description") or "",
     )
 
-    # Insert only tasks not already in the database
+    # Insert new tasks; re-activate any that were incorrectly hidden
     new_count = 0
     for issue in enriched:
         github_issue_id = issue.get("github_issue_id")
 
         if github_issue_id is not None:
-            already_exists = (
+            existing = (
                 session.query(Task)
                 .filter(Task.github_issue_id == github_issue_id)
                 .first()
             )
-            if already_exists:
+            if existing:
+                # The scraper only returns open issues — if we see a hidden task
+                # here it was wrongly marked inactive (e.g. by the old broken sync
+                # that couldn't find the issue in page-1 of a large repo).
+                # Re-activate it so it becomes visible again.
+                if not existing.is_active:
+                    existing.is_active = True
+                    existing.hidden_reason = None
+                    existing.hidden_at = None
+                    session.add(existing)
+                    new_count += 1
                 continue
 
         task = Task(
