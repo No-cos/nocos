@@ -22,6 +22,38 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sync", tags=["sync"])
 
 
+@router.post("/reactivate")
+def reactivate_incorrectly_closed() -> dict:
+    """
+    Re-activate all tasks currently hidden as 'closed' without making any
+    GitHub API calls. Safe to run when the rate limit is exhausted.
+
+    These tasks were hidden by a now-fixed bug in the sync job that couldn't
+    find issues by number in page-1 of large repos, so it assumed they were
+    closed when they were actually still open.
+    """
+    from db import SessionLocal
+    from models.task import Task
+    from datetime import datetime, timezone
+
+    with SessionLocal() as session:
+        hidden = (
+            session.query(Task)
+            .filter(Task.is_active == False, Task.hidden_reason == "closed")
+            .all()
+        )
+        count = 0
+        for task in hidden:
+            task.is_active = True
+            task.hidden_reason = None
+            task.hidden_at = None
+            count += 1
+        session.commit()
+
+    logger.info("Force-reactivated incorrectly closed tasks", extra={"count": count})
+    return {"success": True, "reactivated": count}
+
+
 @router.get("/status")
 def sync_status() -> dict:
     """Diagnostic: return DB task/project counts and GitHub rate limit."""
