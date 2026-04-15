@@ -60,7 +60,11 @@ def trigger_sync(body: Optional[SyncTriggerBody] = None) -> dict:
         extra={"extra_repos": extra_repos},
     )
 
-    scrape_stats = run_scrape(extra_repos, SessionLocal)
+    try:
+        scrape_stats = run_scrape(extra_repos, SessionLocal)
+    except Exception as exc:
+        logger.exception("Sync trigger failed")
+        return {"success": False, "error": type(exc).__name__, "detail": str(exc)}
 
     return {
         "success": True,
