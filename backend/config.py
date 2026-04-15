@@ -28,6 +28,10 @@ class Config:
     EMAIL_SERVICE_API_KEY: str = os.getenv("EMAIL_SERVICE_API_KEY", "")
     EMAIL_FROM: str = os.getenv("EMAIL_FROM", "hello@nocos.io")
 
+    # GitLab personal access token — optional.
+    # Without it, GitLab scraping runs unauthenticated (~60 req/min).
+    GITLAB_TOKEN: str = os.getenv("GITLAB_TOKEN", "")
+
     # Frontend base URL — used in confirmation email links
     NEXT_PUBLIC_API_URL: str = os.getenv("NEXT_PUBLIC_API_URL", "http://localhost:3000")
 

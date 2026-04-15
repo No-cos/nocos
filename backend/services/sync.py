@@ -29,8 +29,10 @@ from services.cache import app_cache
 
 logger = logging.getLogger(__name__)
 
-# How often the sync runs
-SYNC_INTERVAL_HOURS = 6
+# How often each scheduled job runs
+SYNC_INTERVAL_HOURS = 6          # freshness (close/stale/archive checks)
+GITHUB_SCRAPE_INTERVAL_HOURS = 1  # new GitHub issue discovery
+GITLAB_SCRAPE_INTERVAL_HOURS = 2  # new GitLab issue discovery
 
 
 # ─── Activity Score & Status ───────────────────────────────────────────────────
@@ -701,6 +703,37 @@ def run_scrape(extra_repos: list[str], session_factory) -> dict:
     return stats
 
 
+# ─── Scheduled Job Wrappers ───────────────────────────────────────────────────
+
+def _run_scheduled_github_scrape(session_factory) -> None:
+    """
+    APScheduler wrapper for the hourly GitHub scrape job.
+
+    Calls run_scrape with no extra repos — only refreshes projects already
+    tracked in the database.  Errors are caught and logged so a single failure
+    doesn't kill the scheduler thread.
+    """
+    try:
+        run_scrape([], session_factory)
+    except Exception:
+        logger.exception("Scheduled GitHub scrape failed")
+
+
+def _run_scheduled_gitlab_scrape(session_factory) -> None:
+    """
+    APScheduler wrapper for the 2-hour GitLab scrape job.
+
+    Imported lazily to avoid a circular import — gitlab_sync imports nothing
+    from sync.py, but sync.py must not import gitlab_sync at module level
+    because both share the same SessionLocal.
+    """
+    try:
+        from services.gitlab_sync import run_gitlab_scrape
+        run_gitlab_scrape(session_factory)
+    except Exception:
+        logger.exception("Scheduled GitLab scrape failed")
+
+
 # ─── Scheduler Setup ──────────────────────────────────────────────────────────
 
 def create_scheduler(session_factory) -> BackgroundScheduler:
@@ -719,6 +752,7 @@ def create_scheduler(session_factory) -> BackgroundScheduler:
     """
     scheduler = BackgroundScheduler()
 
+    # 6-hour freshness sync — checks open/closed/archived/stale status
     scheduler.add_job(
         func=run_sync,
         trigger="interval",
@@ -726,12 +760,37 @@ def create_scheduler(session_factory) -> BackgroundScheduler:
         kwargs={"session_factory": session_factory},
         id="freshness_sync",
         name="Nocos 6-hour freshness sync",
-        # Replace existing job if the scheduler is restarted mid-interval
+        replace_existing=True,
+    )
+
+    # 1-hour GitHub scrape — discovers new issues on tracked projects
+    scheduler.add_job(
+        func=_run_scheduled_github_scrape,
+        trigger="interval",
+        hours=GITHUB_SCRAPE_INTERVAL_HOURS,
+        kwargs={"session_factory": session_factory},
+        id="github_scrape",
+        name="Nocos 1-hour GitHub scrape",
+        replace_existing=True,
+    )
+
+    # 2-hour GitLab scrape — discovers new GitLab issues
+    scheduler.add_job(
+        func=_run_scheduled_gitlab_scrape,
+        trigger="interval",
+        hours=GITLAB_SCRAPE_INTERVAL_HOURS,
+        kwargs={"session_factory": session_factory},
+        id="gitlab_scrape",
+        name="Nocos 2-hour GitLab scrape",
         replace_existing=True,
     )
 
     logger.info(
         "Sync scheduler configured",
-        extra={"interval_hours": SYNC_INTERVAL_HOURS},
+        extra={
+            "freshness_interval_hours": SYNC_INTERVAL_HOURS,
+            "github_scrape_interval_hours": GITHUB_SCRAPE_INTERVAL_HOURS,
+            "gitlab_scrape_interval_hours": GITLAB_SCRAPE_INTERVAL_HOURS,
+        },
     )
     return scheduler
