@@ -22,6 +22,33 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sync", tags=["sync"])
 
 
+@router.get("/status")
+def sync_status() -> dict:
+    """Diagnostic: return DB task/project counts and GitHub rate limit."""
+    from db import SessionLocal
+    from models.task import Task
+    from models.project import Project
+    from services.github_client import github_client
+
+    with SessionLocal() as session:
+        total_tasks = session.query(Task).count()
+        active_tasks = session.query(Task).filter(Task.is_active == True).count()
+        hidden_tasks = session.query(Task).filter(Task.is_active == False).count()
+        hidden_closed = session.query(Task).filter(
+            Task.is_active == False, Task.hidden_reason == "closed"
+        ).count()
+        total_projects = session.query(Project).count()
+        active_projects = session.query(Project).filter(Project.is_active == True).count()
+
+    rate_limit = github_client.get_rate_limit_remaining()
+
+    return {
+        "tasks": {"total": total_tasks, "active": active_tasks, "hidden": hidden_tasks, "hidden_closed": hidden_closed},
+        "projects": {"total": total_projects, "active": active_projects},
+        "github_rate_limit_remaining": rate_limit,
+    }
+
+
 class SyncTriggerBody(BaseModel):
     """
     Optional request body for POST /sync/trigger.
