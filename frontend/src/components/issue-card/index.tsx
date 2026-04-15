@@ -19,7 +19,7 @@
 
 import Image from "next/image";
 import { Tag } from "@/components/ui/tag";
-import { getActivityColor, formatContributionType } from "@/lib/utils";
+import { getActivityColor, formatContributionType, formatRelativeTime } from "@/lib/utils";
 import type { IssueCardProps } from "./types";
 
 // Max tags shown on a card — remainder shown as "+N" badge
@@ -343,6 +343,19 @@ export function IssueCard({ issue, onClick, animationIndex }: IssueCardProps) {
             {activityLabel}
           </span>
         </div>
+
+        {/* Posted time */}
+        {issue.github_created_at && (
+          <span
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: "12px",
+              color: "var(--color-text-secondary)",
+            }}
+          >
+            {formatRelativeTime(issue.github_created_at)}
+          </span>
+        )}
 
         {/* ✨ AI-generated badge */}
         {issue.is_ai_generated && (

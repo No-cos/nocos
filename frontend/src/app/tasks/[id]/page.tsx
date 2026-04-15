@@ -24,6 +24,7 @@ import { ProjectAbout } from "@/components/project-about";
 import { RelatedIssues } from "@/components/related-issues";
 import { useIssue } from "@/hooks/useIssue";
 import { useBookmark } from "@/hooks/useBookmark";
+import { formatRelativeTime } from "@/lib/utils";
 import { DetailPageSkeleton } from "./skeleton";
 
 export default function TaskDetailPage() {
@@ -232,6 +233,24 @@ export default function TaskDetailPage() {
                 <Tag type="beginner" size="md" />
               )}
             </div>
+
+            {/* Posted time + platform */}
+            {issue.github_created_at && (
+              <p
+                style={{
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: "13px",
+                  color: "var(--color-text-secondary)",
+                  margin: "0 0 24px",
+                }}
+              >
+                Posted {formatRelativeTime(issue.github_created_at)}
+                {" · "}
+                {issue.github_issue_url.includes("gitlab.com")
+                  ? "gitlab.com"
+                  : "github.com"}
+              </p>
+            )}
 
             {/* Description — only description_display is ever shown here */}
             <div

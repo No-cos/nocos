@@ -24,6 +24,49 @@ export function relativeTime(dateString: string): string {
 }
 
 /**
+ * Converts an ISO 8601 date string to a short human-readable relative time.
+ * Used on issue cards and the task detail page to show when an issue was posted.
+ *
+ * Resolutions (in order of precedence):
+ *   < 1 hour  → "X minutes ago"
+ *   < 24 hrs  → "X hours ago"
+ *   < 7 days  → "X days ago"
+ *   < 4 weeks → "X weeks ago"
+ *   otherwise → "X months ago"
+ *
+ * @param dateString - ISO 8601 datetime string (e.g. "2024-03-15T10:30:00Z")
+ * @returns Human-readable relative time string
+ */
+export function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  if (diffMinutes < 60) {
+    return diffMinutes <= 1 ? "1 minute ago" : `${diffMinutes} minutes ago`;
+  }
+
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (diffHours < 24) {
+    return diffHours === 1 ? "1 hour ago" : `${diffHours} hours ago`;
+  }
+
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays < 7) {
+    return diffDays === 1 ? "1 day ago" : `${diffDays} days ago`;
+  }
+
+  const diffWeeks = Math.floor(diffDays / 7);
+  if (diffWeeks < 4) {
+    return diffWeeks === 1 ? "1 week ago" : `${diffWeeks} weeks ago`;
+  }
+
+  const diffMonths = Math.floor(diffDays / 30);
+  return diffMonths === 1 ? "1 month ago" : `${diffMonths} months ago`;
+}
+
+/**
  * Returns the CSS variable name for a contribution type's tag border color.
  * Tags use colored borders only — the color itself is defined in globals.css.
  *

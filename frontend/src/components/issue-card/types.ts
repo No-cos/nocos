@@ -10,6 +10,7 @@ export interface IssueCardIssue {
   is_paid: boolean;
   difficulty?: string | null;
   github_issue_url: string;
+  github_created_at?: string | null;
   project: {
     id: string;
     name: string;
