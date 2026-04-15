@@ -250,10 +250,10 @@ h1, h2, h3 {
 
 /* ─── Navbar — responsive visibility ────────────────────────────────────────── */
 .nav-links-desktop { display: flex; }
-.hamburger-btn { display: none; }
+/* Hamburger hidden until mobile menu is implemented */
+.hamburger-btn { display: none !important; }
 @media (max-width: 767px) {
   .nav-links-desktop { display: none !important; }
-  .hamburger-btn { display: flex !important; }
 }
 
 /* ─── Post page — two-column layout ─────────────────────────────────────────── */
