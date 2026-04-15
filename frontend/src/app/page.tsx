@@ -50,14 +50,8 @@ export default function HomePage() {
 
         {/* ── Discovery section ───────────────────────────────────── */}
         <section
-          style={{
-            maxWidth: "var(--content-max-width)",
-            margin: "0 auto",
-            padding: "100px 24px 100px",
-            overflow: "hidden",
-            boxSizing: "border-box",
-            width: "100%",
-          }}
+          className="page-container"
+          style={{ paddingTop: "100px", paddingBottom: "100px" }}
           aria-label="Issue discovery"
         >
           {/* Filter bar + search bar — side by side on desktop, stacked on mobile */}

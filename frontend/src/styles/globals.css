@@ -77,6 +77,13 @@ html.dark {
 }
 
 /* ─── Base Styles ───────────────────────────────────────────────────────────── */
+/* max-width: 100% on both html and body (not 100vw — vw includes scrollbar    */
+/* width and can cause a 1-17px horizontal overflow on desktop).                */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 html {
   /* Smooth transition when switching between light and dark mode */
   transition: background 200ms ease;
@@ -88,9 +95,19 @@ body {
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Prevent any child element from creating horizontal page overflow */
-  overflow-x: hidden;
-  max-width: 100vw;
+}
+
+/* ─── Page container ────────────────────────────────────────────────────────── */
+/* Reusable centred content wrapper. Use instead of inline maxWidth/padding     */
+/* styles so every section is constrained the same way.                          */
+.page-container {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+  box-sizing: border-box;
 }
 
 /* Headlines use Plus Jakarta Sans */
@@ -209,14 +226,20 @@ h1, h2, h3 {
 }
 
 /* ─── Home page — discovery controls layout ─────────────────────────────────── */
+/* overflow: hidden prevents the horizontally-scrolling FilterBar from          */
+/* expanding this row beyond the section width.                                  */
 .discovery-controls {
   display: flex;
-  gap: 16px;
   align-items: center;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 @media (max-width: 639px) {
   .discovery-controls {
     flex-direction: column;
+    overflow: visible; /* restore so stacked children can scroll independently */
   }
   .discovery-controls > div,
   .discovery-controls > * {
@@ -295,7 +318,8 @@ h1, h2, h3 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 20px;
-  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 @media (max-width: 1024px) {
   .issue-grid-layout {
