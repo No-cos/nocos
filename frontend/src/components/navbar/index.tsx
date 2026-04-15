@@ -19,7 +19,7 @@ import { useDarkMode } from "@/hooks/useDarkMode";
 import type { NavbarProps } from "./types";
 
 const DEFAULT_LINKS: { label: string; href: string }[] = [
-  { label: "Tasks", href: "/" },
+  { label: "Home", href: "/" },
   { label: "Resources", href: "/resources" },
   { label: "Events", href: "/events" },
   { label: "Blog", href: "/blog" },
