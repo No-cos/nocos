@@ -27,7 +27,7 @@ const NAV_LINKS = [
 const SOCIAL_LINKS = [
   {
     label: "Twitter / X",
-    href: "https://twitter.com/nocosdev",
+    href: "https://x.com/nocosdev",
     icon: "𝕏",
   },
   {
