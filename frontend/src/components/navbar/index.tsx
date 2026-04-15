@@ -15,6 +15,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import type { NavbarProps } from "./types";
 
@@ -78,18 +79,17 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
         {/* ── Wordmark ───────────────────────────────────────────────── */}
         <Link
           href="/"
-          style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontWeight: 800,
-            fontSize: "1.25rem",
-            color: "var(--color-cta-primary)",
-            textDecoration: "none",
-            letterSpacing: "-0.02em",
-            flexShrink: 0,
-          }}
+          style={{ flexShrink: 0, display: "flex", alignItems: "center" }}
           aria-label="Nocos home"
         >
-          Nocos
+          <Image
+            src="/nocos_logo.png"
+            alt="Nocos"
+            width={59}
+            height={24}
+            style={{ objectFit: "contain", display: "block" }}
+            priority
+          />
         </Link>
 
         {/* ── Centre links (desktop) ─────────────────────────────────── */}

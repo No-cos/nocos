@@ -14,6 +14,7 @@
  */
 
 import Link from "next/link";
+import Image from "next/image";
 import { useInView } from "@/hooks/use-in-view";
 
 const NAV_LINKS = [
@@ -75,16 +76,16 @@ export function Footer() {
           <div>
             <Link
               href="/"
-              style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontWeight: 800,
-                fontSize: "1.125rem",
-                color: "var(--color-cta-primary)",
-                textDecoration: "none",
-                letterSpacing: "-0.02em",
-              }}
+              style={{ display: "inline-flex", alignItems: "center" }}
+              aria-label="Nocos home"
             >
-              Nocos
+              <Image
+                src="/nocos_logo.png"
+                alt="Nocos"
+                width={49}
+                height={20}
+                style={{ objectFit: "contain", display: "block" }}
+              />
             </Link>
             <p
               style={{
