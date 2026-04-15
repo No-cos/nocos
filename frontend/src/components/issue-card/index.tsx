@@ -33,6 +33,23 @@ const ACTIVITY_LABELS: Record<string, string> = {
 };
 
 /**
+ * Clean an issue title for display on a card.
+ *
+ * GitHub issue titles occasionally contain backticks, leading/trailing
+ * asterisks, underscores, or tildes from authors copy-pasting code or
+ * markdown into the title field. Strip these so the card title renders
+ * as plain readable text.
+ */
+function cleanTitle(text: string): string {
+  return text
+    // Remove all backtick characters
+    .replace(/`/g, "")
+    // Remove leading/trailing bold, italic, strikethrough markers
+    .replace(/^[*_~]+|[*_~]+$/g, "")
+    .trim();
+}
+
+/**
  * Strip markdown syntax from a description string so raw GitHub issue text
  * never shows up with headings, bold markers, blockquotes, etc. on a card.
  *
@@ -84,14 +101,14 @@ function stripMarkdown(text: string): string {
 }
 
 export function IssueCard({ issue, onClick }: IssueCardProps) {
+  // Build a deduplicated tag list — contribution_type sometimes appears
+  // again in the labels array (GitHub label matches the type name), which
+  // would show the same tag twice. Set eliminates exact duplicates.
+  const allTags = Array.from(new Set([issue.contribution_type, ...issue.labels]));
   // We cap tags at 3 on the card to avoid visual clutter.
   // The full tag list is shown on the detail page.
-  const visibleTags = [issue.contribution_type, ...issue.labels].slice(
-    0,
-    MAX_VISIBLE_TAGS
-  );
-  const hiddenTagCount =
-    [issue.contribution_type, ...issue.labels].length - visibleTags.length;
+  const visibleTags = allTags.slice(0, MAX_VISIBLE_TAGS);
+  const hiddenTagCount = allTags.length - visibleTags.length;
 
   const activityColor = getActivityColor(issue.project.activity_status);
   const activityLabel =
@@ -99,6 +116,7 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
 
   // Strip markdown before rendering — raw syntax (###, **, -) must never show
   const cleanDescription = stripMarkdown(issue.description_display);
+  const title = cleanTitle(issue.title);
 
   return (
     <article
@@ -223,7 +241,7 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
           overflow: "hidden",
         }}
       >
-        {issue.title}
+        {title}
       </h3>
 
       {/* ── Tags ─────────────────────────────────────────────────────── */}

@@ -15,7 +15,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from db import SessionLocal
-from services.sync import run_scrape
+from services.sync import run_scrape, run_description_backfill
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,38 @@ def sync_status() -> dict:
         "tasks": {"total": total_tasks, "active": active_tasks, "hidden": hidden_tasks, "hidden_closed": hidden_closed},
         "projects": {"total": total_projects, "active": active_projects},
         "github_rate_limit_remaining": rate_limit,
+    }
+
+
+@router.post("/backfill-descriptions")
+def backfill_descriptions() -> dict:
+    """
+    Retry AI description generation for every active task that was stored
+    with the fallback string or a too-short body.
+
+    Use this after adding or rotating the ANTHROPIC_API_KEY to retroactively
+    generate descriptions for tasks that were ingested while the key was
+    missing or invalid.  Safe to call multiple times — tasks that already
+    have a real description are skipped automatically.
+    """
+    logger.info("Manual description backfill triggered")
+    try:
+        stats = run_description_backfill(SessionLocal)
+    except Exception as exc:
+        logger.exception("Description backfill endpoint failed")
+        return {"success": False, "error": type(exc).__name__, "detail": str(exc)}
+
+    return {
+        "success": True,
+        "data": {
+            "tasks_checked": stats["checked"],
+            "descriptions_updated": stats["updated"],
+            "skipped_no_key": stats.get("skipped_no_key", False),
+            "message": (
+                f"Backfill complete. {stats['updated']} description(s) updated "
+                f"out of {stats['checked']} candidate task(s) checked."
+            ),
+        },
     }
 
 

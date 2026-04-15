@@ -433,6 +433,106 @@ def _ingest_repo_issues(
     return project_is_new, new_count
 
 
+def run_description_backfill(session_factory) -> dict:
+    """
+    Retry AI description generation for tasks that were stored with the
+    fallback string — meaning they were scraped when the Anthropic API key
+    was absent or the generation call failed.
+
+    Finds every active task where is_ai_generated is False AND the body is
+    too short to display as-is, then re-runs the enricher on each one.  Safe
+    to call repeatedly — once a task has a real description it won't match
+    the query again.
+
+    Args:
+        session_factory: SQLAlchemy sessionmaker
+
+    Returns:
+        Dict: { checked, updated, skipped_no_key }
+    """
+    from services.ai.description import (
+        needs_ai_description,
+        FALLBACK_DESCRIPTION,
+    )
+    from config import config as _config
+
+    # No point running if the key still isn't present
+    if not _config.ANTHROPIC_API_KEY:
+        logger.error(
+            "run_description_backfill: ANTHROPIC_API_KEY is not set — "
+            "no descriptions will be generated. Add the key to your environment."
+        )
+        return {"checked": 0, "updated": 0, "skipped_no_key": True}
+
+    logger.info("Description backfill started")
+
+    checked = 0
+    updated = 0
+
+    with session_factory() as session:
+        try:
+            # Find tasks that either:
+            #  a) still hold the verbatim fallback string, OR
+            #  b) were stored with is_ai_generated=False and a body too short
+            #     to have been useful (body was there but generation didn't run)
+            candidates = (
+                session.query(Task)
+                .filter(Task.is_active == True, Task.is_ai_generated == False)
+                .all()
+            )
+
+            for task in candidates:
+                checked += 1
+
+                # Skip if the original body is long enough to stand on its own
+                if not needs_ai_description(task.description_original):
+                    continue
+
+                owner = task.project.github_owner if task.project else ""
+                repo = task.project.github_repo if task.project else ""
+
+                enriched = enrich_issue(
+                    {
+                        "body": task.description_original,
+                        "github_owner": owner,
+                        "github_repo": repo,
+                        "github_issue_number": task.github_issue_number,
+                        "title": task.title,
+                        "labels": task.labels or [],
+                    },
+                    repo_description=(task.project.description or "") if task.project else "",
+                )
+
+                # Only update if we actually got a real description back
+                new_display = enriched.get("description_display", "")
+                if new_display and new_display != FALLBACK_DESCRIPTION:
+                    task.description_display = new_display
+                    task.is_ai_generated = enriched.get("is_ai_generated", True)
+                    session.add(task)
+                    app_cache.invalidate_issue(str(task.id))
+                    updated += 1
+                    logger.info(
+                        "Backfill: description updated",
+                        extra={"task_id": str(task.id), "repo": f"{owner}/{repo}"},
+                    )
+
+            session.commit()
+
+        except Exception as e:
+            session.rollback()
+            logger.exception(
+                "Description backfill failed — rolled back",
+                extra={"error": str(e)},
+            )
+            raise
+
+    logger.info(
+        "Description backfill complete",
+        extra={"checked": checked, "updated": updated},
+    )
+    return {"checked": checked, "updated": updated, "skipped_no_key": False}
+
+
 def run_scrape(extra_repos: list[str], session_factory) -> dict:
     """
     Scrape GitHub for non-code issues and ingest new tasks into the database.
@@ -576,10 +676,25 @@ def run_scrape(extra_repos: list[str], session_factory) -> dict:
             )
             raise
 
+    # After ingesting new issues, backfill any tasks that still have the
+    # fallback description — this handles tasks that were scraped before the
+    # Anthropic API key was set, or when generation failed on first import.
+    try:
+        backfill_stats = run_description_backfill(session_factory)
+        logger.info("Post-scrape backfill complete", extra=backfill_stats)
+    except Exception as e:
+        # Backfill failure must not break the scrape response
+        logger.error(
+            "Post-scrape backfill raised an exception — continuing",
+            extra={"error": str(e)},
+        )
+        backfill_stats = {"checked": 0, "updated": 0}
+
     duration = (datetime.now(tz=timezone.utc) - start_time).total_seconds()
     stats = {
         "projects_scraped": total_projects_scraped,
         "new_tasks_added": total_new_tasks,
+        "descriptions_backfilled": backfill_stats.get("updated", 0),
         "duration_seconds": round(duration, 2),
     }
     logger.info("Scrape run complete", extra=stats)
