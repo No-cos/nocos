@@ -4,18 +4,19 @@
  * Navbar component — top navigation bar for Nocos.
  *
  * Features:
- * - Nocos wordmark (Plus Jakarta Sans, purple) on the left
- * - Centre nav links: Tasks, Resources, Events, Blog
- * - Right side: Sign In link + dark mode toggle (sun/moon icon)
+ * - Nocos wordmark (logo image) on the left
+ * - Centre nav links: Home, Resources, Events, Blog (desktop)
+ * - Right side: dark mode toggle (sun/moon icon) + hamburger (mobile)
  * - Becomes sticky on scroll with a subtle border-bottom
- * - Collapses to hamburger menu on mobile
- * - Dark mode state is lifted from useDarkMode — all colours via CSS variables,
- *   no hardcoded hex values anywhere in this component
+ * - Mobile menu: absolute dropdown panel, closes on link click / outside click / route change
+ * - Hamburger animates to ✕ when menu is open
+ * - All colours via CSS variables, no hardcoded hex values
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import type { NavbarProps } from "./types";
 
@@ -30,9 +31,10 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
   const { theme, toggleTheme } = useDarkMode();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  // Add border-bottom once the user scrolls past 8px — keeps the navbar
-  // clean at the top but provides visual separation when content is beneath it.
+  // Add border-bottom once the user scrolls past 8px
   useEffect(() => {
     function handleScroll() {
       setScrolled(window.scrollY > 8);
@@ -50,8 +52,26 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
+
   return (
     <header
+      ref={menuRef}
       style={{
         position: "sticky",
         top: 0,
@@ -130,18 +150,15 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
           ))}
         </ul>
 
-        {/* ── Right side: Sign In + dark mode toggle ─────────────────── */}
+        {/* ── Right side: dark mode toggle + hamburger ───────────────── */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "16px",
+            gap: "12px",
             flexShrink: 0,
           }}
         >
-          {/* Sign In — hidden for now, re-enable when auth is ready */}
-          {/* <Link href="/signin" ...>Sign In</Link> */}
-
           {/* Dark mode toggle — sun in dark mode, moon in light mode */}
           <button
             onClick={toggleTheme}
@@ -166,7 +183,7 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
             {theme === "dark" ? "☀️" : "🌙"}
           </button>
 
-          {/* Hamburger — mobile only */}
+          {/* Hamburger — mobile only, shown via CSS */}
           <button
             onClick={() => setMenuOpen((o) => !o)}
             aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -177,55 +194,95 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
               background: "none",
               border: "1px solid var(--color-border)",
               borderRadius: "8px",
-              padding: "6px 8px",
+              padding: "6px 10px",
               cursor: "pointer",
               color: "var(--color-text-primary)",
               fontSize: "1.125rem",
               lineHeight: 1,
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            {menuOpen ? "✕" : "☰"}
+            {/* Animated icon: hamburger ↔ close */}
+            <span
+              aria-hidden="true"
+              style={{
+                display: "inline-block",
+                transition: "transform 200ms ease, opacity 200ms ease",
+                transform: menuOpen ? "rotate(90deg)" : "rotate(0deg)",
+              }}
+            >
+              {menuOpen ? "✕" : "☰"}
+            </span>
           </button>
         </div>
       </nav>
 
-      {/* ── Mobile menu ───────────────────────────────────────────────── */}
+      {/* ── Mobile menu dropdown ──────────────────────────────────────── */}
       {menuOpen && (
-        <div
-          id="mobile-menu"
-          style={{
-            backgroundColor: "var(--color-bg)",
-            borderTop: "1px solid var(--color-border)",
-            padding: "16px 24px 24px",
-          }}
-        >
-          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "4px" }}>
-            {links.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  onClick={() => setMenuOpen(false)}
-                  style={{
-                    display: "block",
-                    padding: "10px 0",
-                    fontFamily: "'Inter', sans-serif",
-                    fontWeight: 500,
-                    fontSize: "1rem",
-                    color: "var(--color-text-primary)",
-                    textDecoration: "none",
-                    borderBottom: "1px solid var(--color-border)",
-                  }}
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-            {/* Sign In — hidden for now, re-enable when auth is ready */}
-            {/* <li style={{ paddingTop: "12px" }}><Link href="/signin">Sign In</Link></li> */}
-          </ul>
-        </div>
-      )}
+        <>
+          {/* Backdrop — clicking it closes the menu */}
+          <div
+            aria-hidden="true"
+            onClick={() => setMenuOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              top: "60px",
+              zIndex: 40,
+              background: "transparent",
+            }}
+          />
 
+          {/* Menu panel */}
+          <div
+            id="mobile-menu"
+            role="dialog"
+            aria-label="Mobile navigation"
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              zIndex: 50,
+              backgroundColor: "var(--color-surface)",
+              borderBottom: "1px solid var(--color-border)",
+              padding: "16px 24px 24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "4px",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+            }}
+          >
+            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              {links.map((link, i) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    onClick={() => setMenuOpen(false)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      padding: "12px 0",
+                      fontFamily: "'Inter', sans-serif",
+                      fontSize: "15px",
+                      fontWeight: 500,
+                      color: "var(--color-text-primary)",
+                      textDecoration: "none",
+                      borderBottom:
+                        i < links.length - 1
+                          ? "1px solid var(--color-border)"
+                          : "none",
+                    }}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
     </header>
   );
 }
