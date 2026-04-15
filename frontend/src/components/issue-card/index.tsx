@@ -125,7 +125,7 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
         // overflow: hidden clips anything that would otherwise bleed out.
         // No gap here; each child section uses explicit margin/flexShrink instead
         // so the layout is fully predictable.
-        height: "380px",
+        height: "320px",
         overflow: "hidden",
         cursor: onClick ? "pointer" : "default",
         transition: "transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease",
