@@ -259,7 +259,7 @@ export default function TaskDetailPage() {
                 fontSize: "1rem",
                 lineHeight: 1.75,
                 color: "var(--color-text-primary)",
-                marginBottom: issue.is_ai_generated ? "12px" : "20px",
+                marginBottom: "12px",
               }}
             >
               {issue.description_display}
