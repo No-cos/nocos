@@ -9,6 +9,7 @@
 #   - Returns a stats envelope so the caller can see what happened
 
 import logging
+import threading
 from typing import Optional
 
 from fastapi import APIRouter
@@ -116,31 +117,28 @@ def backfill_descriptions() -> dict:
 @router.post("/trigger-gitlab")
 def trigger_gitlab_sync() -> dict:
     """
-    Manually trigger a full GitLab scrape.
+    Manually trigger a full GitLab scrape in the background.
 
-    Calls the same service used by the 2-hour scheduled job so you can
-    kick off a scrape immediately without waiting for the next interval.
-    Returns a stats envelope with counts from the run.
+    Returns 202 immediately — the scrape runs in a daemon thread and can
+    take several minutes. Check GET /sync/status for updated task counts.
+    Railway's 3-minute proxy timeout means synchronous scrapes of large
+    project sets are cut off; fire-and-forget avoids this entirely.
     """
-    logger.info("Manual GitLab sync trigger received")
-    try:
-        from services.gitlab_sync import run_gitlab_scrape
-        stats = run_gitlab_scrape(SessionLocal)
-    except Exception as exc:
-        logger.exception("GitLab sync trigger failed")
-        return {"success": False, "error": type(exc).__name__, "detail": str(exc)}
+    logger.info("Manual GitLab sync trigger received — starting background thread")
+
+    def _run() -> None:
+        try:
+            from services.gitlab_sync import run_gitlab_scrape
+            run_gitlab_scrape(SessionLocal)
+        except Exception:
+            logger.exception("Background GitLab scrape failed")
+
+    threading.Thread(target=_run, daemon=True).start()
 
     return {
         "success": True,
-        "data": {
-            "projects_scraped": stats.get("projects_scraped", 0),
-            "new_tasks_added": stats.get("new_tasks_added", 0),
-            "duration_seconds": stats.get("duration_seconds", 0),
-            "message": (
-                f"GitLab sync complete. {stats.get('new_tasks_added', 0)} new task(s) added "
-                f"across {stats.get('projects_scraped', 0)} project(s)."
-            ),
-        },
+        "accepted": True,
+        "message": "GitLab scrape started in background. Check /api/v1/sync/status for updated counts.",
     }
 
 
@@ -160,17 +158,14 @@ class SyncTriggerBody(BaseModel):
 @router.post("/trigger")
 def trigger_sync(body: Optional[SyncTriggerBody] = None) -> dict:
     """
-    Manually trigger a full GitHub scrape and freshness sync.
+    Manually trigger a full GitHub scrape in the background.
 
-    Two passes run sequentially:
-      1. Scrape pass — fetches open non-code issues from GitHub for all
-         active projects in the DB plus any repos in the request body.
-         Inserts new tasks; skips issues already stored (idempotent).
-      2. Freshness pass — checks every existing active task against its
-         current GitHub state: hides closed/stale issues, regenerates AI
-         descriptions if the issue body changed, recalculates activity scores.
+    Returns 202 immediately — the scrape runs in a daemon thread and can
+    take several minutes when many projects are tracked. Check GET
+    /sync/status for updated task/project counts after a few minutes.
 
-    Returns a stats envelope with counts from both passes.
+    Railway's proxy timeout is ~3 minutes; synchronous scrapes of large
+    project sets are cut off at that boundary. Fire-and-forget avoids this.
 
     Body (optional JSON):
         { "repos": ["owner/repo", ...] }
@@ -178,25 +173,21 @@ def trigger_sync(body: Optional[SyncTriggerBody] = None) -> dict:
     extra_repos = body.repos if body else []
 
     logger.info(
-        "Manual sync trigger received",
+        "Manual GitHub sync trigger received — starting background thread",
         extra={"extra_repos": extra_repos},
     )
 
-    try:
-        scrape_stats = run_scrape(extra_repos, SessionLocal)
-    except Exception as exc:
-        logger.exception("Sync trigger failed")
-        return {"success": False, "error": type(exc).__name__, "detail": str(exc)}
+    def _run() -> None:
+        try:
+            run_scrape(extra_repos, SessionLocal)
+        except Exception:
+            logger.exception("Background GitHub scrape failed")
+
+    threading.Thread(target=_run, daemon=True).start()
 
     return {
         "success": True,
-        "data": {
-            "projects_scraped": scrape_stats["projects_scraped"],
-            "new_tasks_added": scrape_stats["new_tasks_added"],
-            "scrape_duration_seconds": scrape_stats["duration_seconds"],
-            "message": (
-                f"Sync complete. {scrape_stats['new_tasks_added']} new task(s) added "
-                f"across {scrape_stats['projects_scraped']} project(s)."
-            ),
-        },
+        "accepted": True,
+        "repos_queued": extra_repos or "all active projects",
+        "message": "GitHub scrape started in background. Check /api/v1/sync/status for updated counts.",
     }
