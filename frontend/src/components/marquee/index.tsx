@@ -21,25 +21,35 @@ export function CategoryMarquee() {
       aria-label="Contribution types available on Nocos"
       style={{
         padding: "32px 0 40px",
+        // overflow: hidden clips the scrolling tracks — must NOT have a mask
+        // on this element. The mask lives on the inner wrapper below so it
+        // doesn't interfere with overflow containment (previous bug: applying
+        // mask here broke overflow: hidden and caused horizontal page overflow).
         overflow: "hidden",
         backgroundColor: "var(--color-bg)",
-        // Fade the left and right edges into the background using a CSS mask.
-        // This gives the marquee the appearance of emerging from and dissolving
-        // into the page — purely CSS, no extra elements needed.
-        WebkitMaskImage:
-          "linear-gradient(to right, transparent 0%, transparent 10%, black 13%, black 87%, transparent 90%, transparent 100%)",
-        maskImage:
-          "linear-gradient(to right, transparent 0%, transparent 10%, black 13%, black 87%, transparent 90%, transparent 100%)",
       }}
     >
-      {/* Row 1 — scrolls left */}
-      <MarqueeRow types={types} direction="left" />
+      {/*
+       * Inner wrapper — this is the element that receives the fade mask.
+       * It sits inside the overflow-clipping <section> so the mask can
+       * soften the edges without affecting how overflow is calculated.
+       */}
+      <div
+        style={{
+          maskImage:
+            "linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)",
+          WebkitMaskImage:
+            "linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)",
+        }}
+      >
+        {/* Row 1 — scrolls left */}
+        <MarqueeRow types={types} direction="left" />
 
-      {/* Row 2 — scrolls right, offset by half to feel different */}
-      <div style={{ marginTop: "12px" }}>
-        <MarqueeRow types={[...types].reverse()} direction="right" />
+        {/* Row 2 — scrolls right, offset by half to feel different */}
+        <div style={{ marginTop: "12px" }}>
+          <MarqueeRow types={[...types].reverse()} direction="right" />
+        </div>
       </div>
-
     </section>
   );
 }
