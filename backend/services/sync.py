@@ -8,7 +8,7 @@
 #
 # What the sync does (features.md Section 7):
 #   a. Issue closed on GitHub    → is_active=False, hidden_reason="closed"
-#   b. Issue > 14 days old       → is_active=False, hidden_reason="stale"
+#   b. Issue > 28 days old       → is_active=False, hidden_reason="stale"
 #   c. Repo archived on GitHub   → all tasks + project set to inactive
 #   d. Issue body changed        → regenerate AI description
 #   e. Last commit date changed  → recalculate activity_score/status

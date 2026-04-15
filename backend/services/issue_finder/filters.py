@@ -20,7 +20,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Issues older than this are considered stale and should not be imported.
-MAX_ISSUE_AGE_DAYS = 30
+MAX_ISSUE_AGE_DAYS = 28
 
 # Labels that indicate purely code-specific work.
 # An issue whose EVERY label is in this set has no non-code contribution angle.

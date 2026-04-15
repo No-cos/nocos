@@ -28,16 +28,15 @@ export function relativeTime(dateString: string): string {
  * Used on issue cards and the task detail page to show when an issue was posted.
  *
  * Resolutions (in order of precedence):
- *   < 1 minute  → "just now"
- *   1–59 min    → "X minutes ago"
- *   1–23 hrs    → "X hours ago"
- *   1–6 days    → "X days ago"
- *   1–3 weeks   → "X weeks ago"
- *   1–11 months → "X months ago"
- *   1+ years    → "X years ago"
+ *   < 1 minute → "just now"
+ *   1–59 min   → "X minutes ago"
+ *   1–23 hrs   → "X hours ago"
+ *   1–6 days   → "X days ago"
+ *   1–3 weeks  → "X weeks ago"
+ *   ≥ 4 weeks  → "4 weeks ago"  (hard cap — issues this old are filtered out)
  *
  * Each threshold floors the value and only uses that unit when the result
- * is ≥ 1, so "0 months ago" or "0 minutes ago" can never appear.
+ * is ≥ 1, so "0 X ago" can never appear.
  *
  * @param dateString - ISO 8601 datetime string (e.g. "2024-03-15T10:30:00Z")
  * @returns Human-readable relative time string
@@ -67,15 +66,14 @@ export function formatRelativeTime(dateString: string): string {
 
   const diffMonths = Math.floor(diffDays / 30);
   if (diffMonths < 1) {
+    // 1–3 weeks (7–27 days)
     return diffWeeks === 1 ? "1 week ago" : `${diffWeeks} weeks ago`;
   }
 
-  const diffYears = Math.floor(diffDays / 365);
-  if (diffYears < 1) {
-    return diffMonths === 1 ? "1 month ago" : `${diffMonths} months ago`;
-  }
-
-  return diffYears === 1 ? "1 year ago" : `${diffYears} years ago`;
+  // ≥ 4 weeks: cap at "4 weeks ago".
+  // Issues this old are filtered out before reaching the display layer, so
+  // this branch only fires in edge cases (e.g. clock skew, mock data).
+  return "4 weeks ago";
 }
 
 /**

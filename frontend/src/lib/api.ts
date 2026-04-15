@@ -112,9 +112,16 @@ interface FetchIssuesOptions {
   difficulty?: string;
 }
 
+// Client-side staleness cutoff — must match MAX_ISSUE_AGE_DAYS in filters.py.
+// Acts as a safety net for any issues that slipped through the backend filter.
+const MAX_ISSUE_AGE_MS = 28 * 24 * 60 * 60 * 1000;
+
 /**
  * Fetch a paginated list of active issues with optional filters.
  * Maps directly to GET /api/v1/issues.
+ *
+ * A client-side age filter removes any issue whose github_created_at is
+ * older than 28 days — matching the backend MAX_ISSUE_AGE_DAYS constant.
  */
 export async function fetchIssues(
   options: FetchIssuesOptions = {}
@@ -129,7 +136,17 @@ export async function fetchIssues(
   if (options.difficulty) params.set("difficulty", options.difficulty);
 
   const query = params.toString();
-  return apiFetch<IssueListResponse>(`/api/v1/issues${query ? `?${query}` : ""}`);
+  const result = await apiFetch<IssueListResponse>(`/api/v1/issues${query ? `?${query}` : ""}`);
+
+  // Safety-net: drop any issue older than 28 days that the backend may have
+  // missed. github_created_at is null for manually posted tasks — those pass.
+  const now = Date.now();
+  result.data = result.data.filter((issue) => {
+    if (!issue.github_created_at) return true;
+    return now - new Date(issue.github_created_at).getTime() <= MAX_ISSUE_AGE_MS;
+  });
+
+  return result;
 }
 
 /**
