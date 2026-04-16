@@ -58,7 +58,7 @@ export function Hero() {
             the mask fades it out before the hard clip. */}
         <div
           style={{
-            opacity: 0.35,
+            opacity: 0.18,
             pointerEvents: "none",
             maskImage:
               "linear-gradient(to bottom, black 0%, black 30%, transparent 55%)",
