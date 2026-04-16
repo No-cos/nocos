@@ -71,7 +71,7 @@ function StatBlock({
       style={{
         display: "flex",
         flexDirection: "column",
-        alignItems: "flex-start",
+        alignItems: "center",
       }}
     >
       <span
