@@ -27,42 +27,43 @@ export function Hero() {
         padding: "150px 24px 150px",
         textAlign: "center",
         position: "relative",
-        overflow: "hidden",
+        overflowX: "visible",
+        overflowY: "hidden",
       }}
       aria-labelledby="hero-headline"
     >
       {/* ── Globe background layer ─────────────────────────────────────── */}
-      {/* Outer wrapper: absolute, fills section, centres the globe */}
+      {/* Outer wrapper: 140vw wide, centred — bleeds equally off left/right.
+          alignItems: flex-start so the globe text starts at the top of the
+          section, ensuring the rounded top arc of the sphere is visible. */}
       <div
         aria-hidden="true"
         style={{
           position: "absolute",
           top: 0,
-          left: 0,
-          right: 0,
           bottom: 0,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "140vw",
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "center",
           zIndex: 0,
           pointerEvents: "none",
         }}
       >
-        {/* Inner wrapper: carries opacity + mask so overflow containment
-            on the outer div is never broken by the mask-image property */}
+        {/* Inner wrapper: carries opacity + mask (on inner, not overflow container).
+            No height constraint — the globe text (~90vh tall) fills naturally;
+            the section's overflowY: hidden clips the bottom,
+            the mask fades it out before the hard clip. */}
         <div
           style={{
-            width: "80%",
-            height: "80%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
             opacity: 0.35,
-            maskImage:
-              "linear-gradient(to bottom, black 0%, black 50%, transparent 100%)",
-            WebkitMaskImage:
-              "linear-gradient(to bottom, black 0%, black 50%, transparent 100%)",
             pointerEvents: "none",
+            maskImage:
+              "linear-gradient(to bottom, black 0%, black 55%, transparent 100%)",
+            WebkitMaskImage:
+              "linear-gradient(to bottom, black 0%, black 55%, transparent 100%)",
           }}
         >
           <GlobeAnimation />
