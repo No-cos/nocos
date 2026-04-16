@@ -846,7 +846,7 @@ export default function PostTaskPage() {
             {/* ── Submitter email ─────────────────────────────────────── */}
             <FieldGroup
               id="submitter-email"
-              label="Your email address"
+              label="Your email address *"
               error={errors.email}
               hint="Used only to follow up on your submission. Never shown publicly."
             >
@@ -859,7 +859,7 @@ export default function PostTaskPage() {
                   setErrors((prev) => ({ ...prev, email: undefined }));
                 }}
                 onBlur={() => {
-                  if (email.trim() && !EMAIL_RE.test(email.trim())) {
+                  if (!email.trim() || !EMAIL_RE.test(email.trim())) {
                     setErrors((prev) => ({
                       ...prev,
                       email: "Please enter a valid email address.",
