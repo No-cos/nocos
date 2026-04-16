@@ -24,7 +24,7 @@ export function Hero() {
     <section
       style={{
         backgroundColor: "var(--color-bg)",
-        padding: "150px 24px 150px",
+        padding: "150px 24px 100px",
         textAlign: "center",
         position: "relative",
         overflowX: "visible",
@@ -61,9 +61,9 @@ export function Hero() {
             opacity: 0.35,
             pointerEvents: "none",
             maskImage:
-              "linear-gradient(to bottom, black 0%, black 55%, transparent 100%)",
+              "linear-gradient(to bottom, black 0%, black 30%, transparent 55%)",
             WebkitMaskImage:
-              "linear-gradient(to bottom, black 0%, black 55%, transparent 100%)",
+              "linear-gradient(to bottom, black 0%, black 30%, transparent 55%)",
           }}
         >
           <GlobeAnimation />
