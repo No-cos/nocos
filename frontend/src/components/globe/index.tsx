@@ -66,12 +66,6 @@ export function GlobeAnimation() {
     const el = elRef.current;
     if (!el) return;
 
-    // Skip the animation on touch/mobile devices — the rAF loop doing
-    // 8,820-char textContent mutations every frame competes with the
-    // browser's scroll compositor and causes visible lag on mobile.
-    // Touch devices get no mouse-follow benefit, so this is zero visual loss.
-    if (window.matchMedia("(pointer: coarse)").matches) return;
-
     // ── Globe constants ───────────────────────────────────────────────
     const WIDTH = 140;
     const HEIGHT = Math.floor(WIDTH * 0.45); // ~63 rows — monospace aspect ratio
@@ -101,7 +95,11 @@ export function GlobeAnimation() {
       mouse.targetPitch = -cy * 2 * MAX_MOUSE_ANGLE;
     }
 
-    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    // Only wire up mouse-follow on pointer-fine (non-touch) devices
+    const isTouch = window.matchMedia("(pointer: coarse)").matches;
+    if (!isTouch) {
+      window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    }
 
     // ── Render loop ───────────────────────────────────────────────────
     const startTime = performance.now();
@@ -170,7 +168,9 @@ export function GlobeAnimation() {
 
     return () => {
       cancelAnimationFrame(rafId);
-      window.removeEventListener("mousemove", handleMouseMove);
+      if (!isTouch) {
+        window.removeEventListener("mousemove", handleMouseMove);
+      }
     };
   }, []);
 
