@@ -17,6 +17,7 @@
 import { useState } from "react";
 import { Navbar } from "@/components/navbar";
 import { Hero } from "@/components/hero";
+import { StatsBar } from "@/components/stats-bar";
 import { CategoryMarquee } from "@/components/marquee";
 import { FilterBar } from "@/components/filter-bar";
 import { SearchBar } from "@/components/search-bar";
@@ -44,6 +45,9 @@ export default function HomePage() {
       <main>
         {/* ── Hero ────────────────────────────────────────────────── */}
         <Hero />
+
+        {/* ── Live stats ──────────────────────────────────────────── */}
+        <StatsBar />
 
         {/* ── Category Marquee ────────────────────────────────────── */}
         <CategoryMarquee />

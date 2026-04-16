@@ -210,6 +210,22 @@ export async function submitTask(
   return response.data;
 }
 
+// ─── Stats ────────────────────────────────────────────────────────────────────
+
+export interface Stats {
+  open_tasks: number;
+  projects: number;
+  contribution_types: number;
+}
+
+/**
+ * Fetch platform-wide stats (open tasks, active projects, contribution types).
+ * Maps directly to GET /api/v1/stats.
+ */
+export async function fetchStats(): Promise<Stats> {
+  return apiFetch<Stats>("/api/v1/stats");
+}
+
 /**
  * Subscribe an email address to the weekly digest.
  * Maps directly to POST /api/v1/subscribe.
