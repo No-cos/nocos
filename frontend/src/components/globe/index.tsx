@@ -66,13 +66,34 @@ export function GlobeAnimation() {
     const el = elRef.current;
     if (!el) return;
 
+    // ── Device detection ──────────────────────────────────────────────
+    const isTouch = window.matchMedia("(pointer: coarse)").matches;
+
     // ── Globe constants ───────────────────────────────────────────────
-    const WIDTH = 140;
-    const HEIGHT = Math.floor(WIDTH * 0.45); // ~63 rows — monospace aspect ratio
+    // On touch devices use a smaller grid (80×36 = 2,880 chars vs 8,820)
+    // to cut main-thread work by ~67% and keep scroll smooth.
+    const WIDTH = isTouch ? 80 : 140;
+    const HEIGHT = Math.floor(WIDTH * 0.45);
     const ROTATION_SPEED = (2 * Math.PI) / 9000; // full auto-spin ≈ 9 s
     const SHADE_RAMP = "@#MWo*|=~-.· ";
+    // Target frame interval: 15fps on touch, uncapped on desktop
+    const FRAME_INTERVAL = isTouch ? 1000 / 15 : 0;
     const MAP_H = WORLD_MAP.length;
     const MAP_W = WORLD_MAP[0].length;
+
+    // ── Scroll-pause state ────────────────────────────────────────────
+    // Skip rendering during scroll so the main thread is free for the
+    // browser's scroll compositor. Resumes 200ms after scrolling stops.
+    let isScrolling = false;
+    let scrollTimer: ReturnType<typeof setTimeout>;
+
+    function handleScroll() {
+      isScrolling = true;
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => { isScrolling = false; }, 200);
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
 
     // ── Mouse-follow state ────────────────────────────────────────────
     // Max ±30° (π/6 rad) of mouse influence on top of the auto-spin
@@ -87,16 +108,13 @@ export function GlobeAnimation() {
     };
 
     function handleMouseMove(e: MouseEvent) {
-      // Normalise cursor to [-0.5, 0.5] across the viewport
       const cx = e.clientX / window.innerWidth - 0.5;
       const cy = e.clientY / window.innerHeight - 0.5;
-      // Right cursor → rotate globe right; up cursor → tilt globe up (negative cy → positive pitch)
       mouse.targetYaw = cx * 2 * MAX_MOUSE_ANGLE;
       mouse.targetPitch = -cy * 2 * MAX_MOUSE_ANGLE;
     }
 
     // Only wire up mouse-follow on pointer-fine (non-touch) devices
-    const isTouch = window.matchMedia("(pointer: coarse)").matches;
     if (!isTouch) {
       window.addEventListener("mousemove", handleMouseMove, { passive: true });
     }
@@ -104,13 +122,23 @@ export function GlobeAnimation() {
     // ── Render loop ───────────────────────────────────────────────────
     const startTime = performance.now();
     let rafId: number;
+    let lastFrameTime = 0;
 
-    function render() {
+    function render(now: number) {
+      rafId = requestAnimationFrame(render);
+
+      // Pause during scroll — frees the main thread for the scroll compositor
+      if (isScrolling) return;
+
+      // Throttle frame rate on touch devices (15fps)
+      if (FRAME_INTERVAL > 0 && now - lastFrameTime < FRAME_INTERVAL) return;
+      lastFrameTime = now;
+
       // Smooth mouse values toward their targets
       mouse.currentYaw += (mouse.targetYaw - mouse.currentYaw) * LERP;
       mouse.currentPitch += (mouse.targetPitch - mouse.currentPitch) * LERP;
 
-      const elapsed = performance.now() - startTime;
+      const elapsed = now - startTime;
       // Auto-spin angle + mouse yaw offset
       const angle = -(elapsed * ROTATION_SPEED) + mouse.currentYaw;
 
@@ -161,13 +189,14 @@ export function GlobeAnimation() {
 
       if (!el) return;
       el.textContent = output;
-      rafId = requestAnimationFrame(render);
     }
 
     rafId = requestAnimationFrame(render);
 
     return () => {
       cancelAnimationFrame(rafId);
+      clearTimeout(scrollTimer);
+      window.removeEventListener("scroll", handleScroll);
       if (!isTouch) {
         window.removeEventListener("mousemove", handleMouseMove);
       }

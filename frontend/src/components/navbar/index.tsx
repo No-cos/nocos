@@ -48,7 +48,7 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
     function handleResize() {
       if (window.innerWidth >= 768) setMenuOpen(false);
     }
-    window.addEventListener("resize", handleResize);
+    window.addEventListener("resize", handleResize, { passive: true });
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
