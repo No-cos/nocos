@@ -82,6 +82,7 @@ function StatBlock({
           color: "var(--color-text-primary)",
           lineHeight: 1.1,
           letterSpacing: "-0.02em",
+          textAlign: "center",
         }}
       >
         {displayValue}{value !== null ? suffix : ""}
@@ -93,6 +94,7 @@ function StatBlock({
           fontSize: "0.8125rem",
           color: "var(--color-text-secondary)",
           marginTop: "6px",
+          textAlign: "center",
         }}
       >
         {label}
