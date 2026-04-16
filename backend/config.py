@@ -35,6 +35,10 @@ class Config:
     # Frontend base URL — used in confirmation email links
     NEXT_PUBLIC_API_URL: str = os.getenv("NEXT_PUBLIC_API_URL", "http://localhost:3000")
 
+    # Public frontend URL — used in admin emails to link back to approved tasks.
+    # Set to https://nocos.cc in production; defaults to localhost for local dev.
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://nocos.cc")
+
     # Admin secret token for content moderation endpoints.
     # If unset, all admin endpoints return 503. Generate with: openssl rand -hex 32
     ADMIN_SECRET_TOKEN: str = os.getenv("ADMIN_SECRET_TOKEN", "")

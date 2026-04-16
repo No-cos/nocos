@@ -14,14 +14,23 @@
  *     - 401/403/other → clear token, show login form.
  *  3. Login form: enter token → test → save or show error.
  *  4. Dashboard: list pending tasks with Approve / Reject buttons.
- *     Each action calls the appropriate admin endpoint, then removes
- *     the card with a fade-out animation and shows a toast.
+ *     Reject opens an inline reason picker before confirming.
+ *     Each action removes the card with a fade-out and shows a toast.
  */
 
 import { useState, useEffect, useCallback } from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const STORAGE_KEY = "admin_token";
+
+const REJECTION_REASONS = [
+  "Does not meet open source requirements",
+  "Not a non-code contribution",
+  "Duplicate issue already listed",
+  "Insufficient information provided",
+  "Project is not actively maintained",
+  "Other",
+] as const;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -73,9 +82,10 @@ async function adminFetch<T>(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw Object.assign(new Error((err as { detail?: string }).detail ?? `HTTP ${res.status}`), {
-      status: res.status,
-    });
+    throw Object.assign(
+      new Error((err as { detail?: string }).detail ?? `HTTP ${res.status}`),
+      { status: res.status }
+    );
   }
   return res.json() as Promise<T>;
 }
@@ -95,6 +105,10 @@ export default function AdminPage() {
 
   // Cards being removed via fade-out animation
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
+
+  // Inline rejection panel state — only one card open at a time
+  const [rejectingTaskId, setRejectingTaskId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState<string>(REJECTION_REASONS[0]);
 
   // Toast notifications
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -183,47 +197,47 @@ export default function AdminPage() {
     setStats(null);
     setTokenInput("");
     setLoginError(null);
+    setRejectingTaskId(null);
   }
 
-  // ── Approve / Reject ────────────────────────────────────────────────────────
+  // ── Shared removal helper ───────────────────────────────────────────────────
 
-  async function handleModerate(taskId: string, action: "approve" | "reject") {
-    // Start fade-out immediately for instant feedback
+  function animateRemove(
+    taskId: string,
+    action: "approve" | "reject"
+  ) {
     setRemovingIds((prev) => new Set(prev).add(taskId));
+    setTimeout(() => {
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      setRemovingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+      setStats((prev) =>
+        prev
+          ? {
+              ...prev,
+              pending_review: Math.max(0, prev.pending_review - 1),
+              approved: action === "approve" ? prev.approved + 1 : prev.approved,
+              rejected: action === "reject" ? prev.rejected + 1 : prev.rejected,
+            }
+          : prev
+      );
+    }, 350);
+  }
 
+  // ── Approve ─────────────────────────────────────────────────────────────────
+
+  async function handleApprove(taskId: string) {
+    setRemovingIds((prev) => new Set(prev).add(taskId));
     try {
-      await adminFetch(`/api/v1/admin/${action}/${taskId}`, token, {
+      await adminFetch(`/api/v1/admin/approve/${taskId}`, token, {
         method: "POST",
       });
-
-      // Wait for animation then remove from list
-      setTimeout(() => {
-        setTasks((prev) => prev.filter((t) => t.id !== taskId));
-        setRemovingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(taskId);
-          return next;
-        });
-        setStats((prev) =>
-          prev
-            ? {
-                ...prev,
-                pending_review: Math.max(0, prev.pending_review - 1),
-                approved:
-                  action === "approve" ? prev.approved + 1 : prev.approved,
-                rejected:
-                  action === "reject" ? prev.rejected + 1 : prev.rejected,
-              }
-            : prev
-        );
-      }, 350);
-
-      showToast(
-        action === "approve" ? "Task approved" : "Task rejected",
-        "success"
-      );
+      animateRemove(taskId, "approve");
+      showToast("Task approved", "success");
     } catch {
-      // Undo the fade-out if the request failed
       setRemovingIds((prev) => {
         const next = new Set(prev);
         next.delete(taskId);
@@ -231,6 +245,33 @@ export default function AdminPage() {
       });
       showToast("Action failed. Please try again.", "error");
     }
+  }
+
+  // ── Reject with reason ──────────────────────────────────────────────────────
+
+  async function handleConfirmReject(taskId: string) {
+    setRejectingTaskId(null);
+    setRemovingIds((prev) => new Set(prev).add(taskId));
+    try {
+      await adminFetch(`/api/v1/admin/reject/${taskId}`, token, {
+        method: "POST",
+        body: JSON.stringify({ reason: rejectReason }),
+      });
+      animateRemove(taskId, "reject");
+      showToast("Task rejected", "success");
+    } catch {
+      setRemovingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+      showToast("Action failed. Please try again.", "error");
+    }
+  }
+
+  function openRejectPanel(taskId: string) {
+    setRejectReason(REJECTION_REASONS[0]);
+    setRejectingTaskId(taskId);
   }
 
   // ── Login form ──────────────────────────────────────────────────────────────
@@ -343,9 +384,7 @@ export default function AdminPage() {
                 borderRadius: "8px",
                 border: "none",
                 cursor:
-                  isVerifying || !tokenInput.trim()
-                    ? "not-allowed"
-                    : "pointer",
+                  isVerifying || !tokenInput.trim() ? "not-allowed" : "pointer",
                 transition: "background-color 150ms ease",
               }}
             >
@@ -482,23 +521,25 @@ export default function AdminPage() {
               flexWrap: "wrap",
             }}
           >
-            {[
-              {
-                label: "Pending",
-                value: stats.pending_review,
-                color: "var(--color-status-slow)",
-              },
-              {
-                label: "Approved",
-                value: stats.approved,
-                color: "var(--color-status-active)",
-              },
-              {
-                label: "Rejected",
-                value: stats.rejected,
-                color: "var(--color-status-inactive)",
-              },
-            ].map(({ label, value, color }) => (
+            {(
+              [
+                {
+                  label: "Pending",
+                  value: stats.pending_review,
+                  color: "var(--color-status-slow)",
+                },
+                {
+                  label: "Approved",
+                  value: stats.approved,
+                  color: "var(--color-status-active)",
+                },
+                {
+                  label: "Rejected",
+                  value: stats.rejected,
+                  color: "var(--color-status-inactive)",
+                },
+              ] as const
+            ).map(({ label, value, color }) => (
               <div
                 key={label}
                 style={{
@@ -552,12 +593,7 @@ export default function AdminPage() {
 
         {/* Empty state */}
         {!loading && tasks.length === 0 && (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "80px 0",
-            }}
-          >
+          <div style={{ textAlign: "center", padding: "80px 0" }}>
             <div
               aria-hidden="true"
               style={{ fontSize: "2.5rem", marginBottom: "16px" }}
@@ -593,18 +629,22 @@ export default function AdminPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             {tasks.map((task) => {
               const isRemoving = removingIds.has(task.id);
+              const isRejectOpen = rejectingTaskId === task.id;
+
               return (
                 <div
                   key={task.id}
                   style={{
                     backgroundColor: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
+                    border: `1px solid ${isRejectOpen ? "var(--color-status-inactive)" : "var(--color-border)"}`,
                     borderRadius: "12px",
                     padding: "20px 24px",
                     opacity: isRemoving ? 0 : 1,
-                    transform: isRemoving ? "translateY(-6px)" : "translateY(0)",
+                    transform: isRemoving
+                      ? "translateY(-6px)"
+                      : "translateY(0)",
                     transition:
-                      "opacity 350ms ease, transform 350ms ease",
+                      "opacity 350ms ease, transform 350ms ease, border-color 150ms ease",
                   }}
                 >
                   {/* Card header: title + type tag */}
@@ -648,7 +688,7 @@ export default function AdminPage() {
                     </span>
                   </div>
 
-                  {/* Meta row: project, source, email, time */}
+                  {/* Meta row */}
                   <div
                     style={{
                       display: "flex",
@@ -657,26 +697,22 @@ export default function AdminPage() {
                       marginBottom: "12px",
                     }}
                   >
-                    <MetaChip
-                      label="Project"
-                      value={task.project.name}
-                    />
+                    <MetaChip label="Project" value={task.project.name} />
                     <MetaChip
                       label="Source"
-                      value={task.source === "manual_post" ? "Manual post" : "GitHub"}
+                      value={
+                        task.source === "manual_post" ? "Manual post" : "GitHub"
+                      }
                     />
                     {task.submitter_email && (
-                      <MetaChip
-                        label="Email"
-                        value={task.submitter_email}
-                      />
+                      <MetaChip label="Email" value={task.submitter_email} />
                     )}
                     <MetaChip
                       label="Submitted"
-                      value={new Date(task.created_at).toLocaleString(undefined, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
+                      value={new Date(task.created_at).toLocaleString(
+                        undefined,
+                        { dateStyle: "medium", timeStyle: "short" }
+                      )}
                     />
                   </div>
 
@@ -695,63 +731,140 @@ export default function AdminPage() {
                       : task.description_display}
                   </p>
 
-                  {/* Actions */}
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <button
-                      onClick={() => handleModerate(task.id, "approve")}
-                      disabled={isRemoving}
+                  {/* ── Actions ───────────────────────────────────────────── */}
+                  {!isRejectOpen ? (
+                    /* Default: Approve + Reject buttons */
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <button
+                        onClick={() => handleApprove(task.id)}
+                        disabled={isRemoving}
+                        style={actionBtnStyle(
+                          "var(--color-status-active)",
+                          isRemoving
+                        )}
+                        onMouseEnter={(e) => {
+                          if (!isRemoving)
+                            (e.currentTarget as HTMLElement).style.opacity =
+                              "0.85";
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isRemoving)
+                            (e.currentTarget as HTMLElement).style.opacity =
+                              "1";
+                        }}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => openRejectPanel(task.id)}
+                        disabled={isRemoving}
+                        style={actionBtnStyle(
+                          "var(--color-status-inactive)",
+                          isRemoving
+                        )}
+                        onMouseEnter={(e) => {
+                          if (!isRemoving)
+                            (e.currentTarget as HTMLElement).style.opacity =
+                              "0.85";
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isRemoving)
+                            (e.currentTarget as HTMLElement).style.opacity =
+                              "1";
+                        }}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  ) : (
+                    /* Rejection panel: reason selector + confirm / cancel */
+                    <div
                       style={{
-                        padding: "8px 20px",
-                        backgroundColor: "var(--color-status-active)",
-                        color: "#ffffff",
-                        fontFamily: "'Inter', sans-serif",
-                        fontWeight: 600,
-                        fontSize: "0.875rem",
-                        borderRadius: "8px",
-                        border: "none",
-                        cursor: isRemoving ? "not-allowed" : "pointer",
-                        opacity: isRemoving ? 0.5 : 1,
-                        transition: "opacity 150ms ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isRemoving)
-                          (e.currentTarget as HTMLElement).style.opacity = "0.85";
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isRemoving)
-                          (e.currentTarget as HTMLElement).style.opacity = "1";
+                        borderTop: "1px solid var(--color-border)",
+                        paddingTop: "16px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px",
                       }}
                     >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleModerate(task.id, "reject")}
-                      disabled={isRemoving}
-                      style={{
-                        padding: "8px 20px",
-                        backgroundColor: "var(--color-status-inactive)",
-                        color: "#ffffff",
-                        fontFamily: "'Inter', sans-serif",
-                        fontWeight: 600,
-                        fontSize: "0.875rem",
-                        borderRadius: "8px",
-                        border: "none",
-                        cursor: isRemoving ? "not-allowed" : "pointer",
-                        opacity: isRemoving ? 0.5 : 1,
-                        transition: "opacity 150ms ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isRemoving)
-                          (e.currentTarget as HTMLElement).style.opacity = "0.85";
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isRemoving)
-                          (e.currentTarget as HTMLElement).style.opacity = "1";
-                      }}
-                    >
-                      Reject
-                    </button>
-                  </div>
+                      <label
+                        htmlFor={`reject-reason-${task.id}`}
+                        style={{
+                          fontFamily: "'Inter', sans-serif",
+                          fontWeight: 600,
+                          fontSize: "0.8125rem",
+                          color: "var(--color-text-primary)",
+                        }}
+                      >
+                        Rejection reason
+                      </label>
+                      <select
+                        id={`reject-reason-${task.id}`}
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          padding: "9px 12px",
+                          fontFamily: "'Inter', sans-serif",
+                          fontSize: "0.875rem",
+                          color: "var(--color-text-primary)",
+                          backgroundColor: "var(--color-bg)",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: "8px",
+                          outline: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {REJECTION_REASONS.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "16px",
+                        }}
+                      >
+                        <button
+                          onClick={() => handleConfirmReject(task.id)}
+                          style={actionBtnStyle(
+                            "var(--color-status-inactive)",
+                            false
+                          )}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLElement).style.opacity =
+                              "0.85";
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLElement).style.opacity =
+                              "1";
+                          }}
+                        >
+                          Confirm Rejection
+                        </button>
+                        <button
+                          onClick={() => setRejectingTaskId(null)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            fontFamily: "'Inter', sans-serif",
+                            fontSize: "0.875rem",
+                            color: "var(--color-text-secondary)",
+                            cursor: "pointer",
+                            padding: "0",
+                            textDecoration: "underline",
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -779,4 +892,25 @@ function MetaChip({ label, value }: { label: string; value: string }) {
       {value}
     </span>
   );
+}
+
+// ── actionBtnStyle ────────────────────────────────────────────────────────────
+
+function actionBtnStyle(
+  bgColor: string,
+  disabled: boolean
+): React.CSSProperties {
+  return {
+    padding: "8px 20px",
+    backgroundColor: bgColor,
+    color: "#ffffff",
+    fontFamily: "'Inter', sans-serif",
+    fontWeight: 600,
+    fontSize: "0.875rem",
+    borderRadius: "8px",
+    border: "none",
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.5 : 1,
+    transition: "opacity 150ms ease",
+  };
 }

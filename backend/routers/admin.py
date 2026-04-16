@@ -21,19 +21,26 @@
 #        https://nocos-production.up.railway.app/api/v1/admin/stats
 
 import logging
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from config import config
 from db import get_db
 from models.task import Task
+from services.email import send_approval_email, send_rejection_email
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+class RejectBody(BaseModel):
+    reason: str = "Your submission does not meet our contribution guidelines."
 
 
 def _check_admin(request: Request) -> None:
@@ -121,14 +128,34 @@ def approve_task(task_id: str, request: Request, db: Session = Depends(get_db)) 
     db.commit()
 
     logger.info("Task approved by admin", extra={"task_id": task_id})
+
+    # Send approval email — failure must never block the approve response.
+    if task.submitter_email:
+        try:
+            task_url = f"{config.FRONTEND_URL}/tasks/{task.id}"
+            send_approval_email(task.submitter_email, task.title, task_url)
+        except Exception:
+            from services.email import _mask_email
+            logger.error(
+                "Failed to send approval email",
+                extra={"submitter": _mask_email(task.submitter_email)},
+                exc_info=True,
+            )
+
     return {"success": True, "id": task_id, "review_status": "approved"}
 
 
 @router.post("/reject/{task_id}", include_in_schema=False)
-def reject_task(task_id: str, request: Request, db: Session = Depends(get_db)) -> dict:
+def reject_task(
+    task_id: str,
+    request: Request,
+    body: RejectBody = RejectBody(),
+    db: Session = Depends(get_db),
+) -> dict:
     """
     Reject a pending task — set review_status='rejected' and ensure is_active=False
-    so it never appears publicly.
+    so it never appears publicly. Sends a rejection email with the reason if a
+    submitter_email is stored on the task.
     """
     _check_admin(request)
 
@@ -146,6 +173,19 @@ def reject_task(task_id: str, request: Request, db: Session = Depends(get_db)) -
     db.commit()
 
     logger.info("Task rejected by admin", extra={"task_id": task_id})
+
+    # Send rejection email — failure must never block the reject response.
+    if task.submitter_email:
+        try:
+            send_rejection_email(task.submitter_email, task.title, body.reason)
+        except Exception:
+            from services.email import _mask_email
+            logger.error(
+                "Failed to send rejection email",
+                extra={"submitter": _mask_email(task.submitter_email)},
+                exc_info=True,
+            )
+
     return {"success": True, "id": task_id, "review_status": "rejected"}
 
 
