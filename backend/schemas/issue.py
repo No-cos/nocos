@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, EmailStr, Field, HttpUrl
 
 from schemas.project import ProjectSummary
 
@@ -69,8 +69,8 @@ class IssueCreateRequest(BaseModel):
     )
     difficulty: Optional[str] = None
     github_issue_url: Optional[str] = None
-    submitter_email: Optional[str] = Field(
-        None,
+    submitter_email: EmailStr = Field(
+        ...,
         description="Contact email for the submitter — stored for moderation only, never returned publicly.",
     )
 

@@ -26,7 +26,11 @@ class Config:
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
     EMAIL_SERVICE_API_KEY: str = os.getenv("EMAIL_SERVICE_API_KEY", "")
-    EMAIL_FROM: str = os.getenv("EMAIL_FROM", "hello@nocos.io")
+    # Resend requires the sending domain to be verified before emails will deliver.
+    # onboarding@resend.dev is Resend's pre-verified address — use it as a safe
+    # fallback so emails don't silently fail when EMAIL_FROM is unset or the
+    # domain (nocos.io / nocos.cc) has not yet been verified in the Resend dashboard.
+    EMAIL_FROM: str = os.getenv("EMAIL_FROM", "onboarding@resend.dev")
 
     # GitLab personal access token — optional.
     # Without it, GitLab scraping runs unauthenticated (~60 req/min).

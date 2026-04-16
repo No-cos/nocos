@@ -127,20 +127,34 @@ def approve_task(task_id: str, request: Request, db: Session = Depends(get_db)) 
     task.is_active = True
     db.commit()
 
-    logger.info("Task approved by admin", extra={"task_id": task_id})
+    logger.info(
+        "Task approved by admin",
+        extra={"task_id": task_id, "has_email": bool(task.submitter_email)},
+    )
 
     # Send approval email — failure must never block the approve response.
     if task.submitter_email:
+        from services.email import _mask_email
+        masked = _mask_email(task.submitter_email)
         try:
             task_url = f"{config.FRONTEND_URL}/tasks/{task.id}"
-            send_approval_email(task.submitter_email, task.title, task_url)
+            logger.info(
+                "Sending approval email",
+                extra={"submitter": masked, "task_url": task_url},
+            )
+            sent = send_approval_email(task.submitter_email, task.title, task_url)
+            logger.info(
+                "Approval email send result",
+                extra={"submitter": masked, "sent": sent},
+            )
         except Exception:
-            from services.email import _mask_email
             logger.error(
-                "Failed to send approval email",
-                extra={"submitter": _mask_email(task.submitter_email)},
+                "Unexpected error sending approval email",
+                extra={"submitter": masked},
                 exc_info=True,
             )
+    else:
+        logger.info("No submitter_email on task — approval email skipped", extra={"task_id": task_id})
 
     return {"success": True, "id": task_id, "review_status": "approved"}
 
@@ -172,19 +186,33 @@ def reject_task(
     task.is_active = False
     db.commit()
 
-    logger.info("Task rejected by admin", extra={"task_id": task_id})
+    logger.info(
+        "Task rejected by admin",
+        extra={"task_id": task_id, "has_email": bool(task.submitter_email)},
+    )
 
     # Send rejection email — failure must never block the reject response.
     if task.submitter_email:
+        from services.email import _mask_email
+        masked = _mask_email(task.submitter_email)
         try:
-            send_rejection_email(task.submitter_email, task.title, body.reason)
+            logger.info(
+                "Sending rejection email",
+                extra={"submitter": masked, "reason": body.reason},
+            )
+            sent = send_rejection_email(task.submitter_email, task.title, body.reason)
+            logger.info(
+                "Rejection email send result",
+                extra={"submitter": masked, "sent": sent},
+            )
         except Exception:
-            from services.email import _mask_email
             logger.error(
-                "Failed to send rejection email",
-                extra={"submitter": _mask_email(task.submitter_email)},
+                "Unexpected error sending rejection email",
+                extra={"submitter": masked},
                 exc_info=True,
             )
+    else:
+        logger.info("No submitter_email on task — rejection email skipped", extra={"task_id": task_id})
 
     return {"success": True, "id": task_id, "review_status": "rejected"}
 

@@ -329,7 +329,8 @@ def create_issue(body: IssueCreateRequest, db: Session = Depends(get_db)) -> dic
         is_active=False,
         review_status="pending_review",
         # submitter_email is stored for admin follow-up only — never in public responses.
-        submitter_email=body.submitter_email or None,
+        # Validated as a real email address by the EmailStr schema field.
+        submitter_email=body.submitter_email,
     )
     db.add(task)
     db.commit()
