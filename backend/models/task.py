@@ -112,6 +112,12 @@ class Task(Base):
     # False when the task is stale, closed, or archived — never deleted
     is_active = Column(Boolean, nullable=False, default=True, index=True)
 
+    # Content moderation state for user-submitted tasks.
+    # Scraped tasks are always 'approved'; manual_post tasks start as
+    # 'pending_review' and only become visible once an admin approves them.
+    # Valid values: approved | pending_review | rejected
+    review_status = Column(String(20), nullable=False, default="approved", index=True)
+
     hidden_reason = Column(
         Enum("closed", "stale", "archived", name="hidden_reason_enum"),
         nullable=True,

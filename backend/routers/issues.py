@@ -100,6 +100,7 @@ def list_issues(
         .join(Task.project)
         .options(joinedload(Task.project))
         .filter(Task.is_active == True)
+        .filter(Task.review_status == "approved")
         .filter(Project.is_active == True)
         .filter(
             (Task.github_created_at == None) | (Task.github_created_at >= age_cutoff)
@@ -195,7 +196,7 @@ def get_issue(issue_id: str, db: Session = Depends(get_db)) -> dict:
     task = (
         db.query(Task)
         .options(joinedload(Task.project))
-        .filter(Task.id == uid, Task.is_active == True)
+        .filter(Task.id == uid, Task.is_active == True, Task.review_status == "approved")
         .first()
     )
 
@@ -323,7 +324,10 @@ def create_issue(body: IssueCreateRequest, db: Session = Depends(get_db)) -> dic
         difficulty=body.difficulty,
         source="manual_post",
         github_issue_url=body.github_issue_url or f"https://github.com/{owner}/{repo_name}",
-        is_active=True,
+        # New user submissions go into the moderation queue — never live immediately.
+        # An admin must approve before is_active=True and review_status='approved'.
+        is_active=False,
+        review_status="pending_review",
     )
     db.add(task)
     db.commit()
