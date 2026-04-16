@@ -80,8 +80,12 @@ def list_pending(request: Request, db: Session = Depends(get_db)) -> dict:
                 "contribution_type": t.contribution_type,
                 "is_paid": t.is_paid,
                 "difficulty": t.difficulty,
+                "source": t.source,
                 "github_issue_url": t.github_issue_url,
                 "description_display": t.description_display,
+                # submitter_email is only surfaced here in the protected admin endpoint.
+                # It is intentionally absent from every public API response.
+                "submitter_email": t.submitter_email,
                 "created_at": t.created_at.isoformat(),
                 "project": {
                     "id": str(t.project.id),

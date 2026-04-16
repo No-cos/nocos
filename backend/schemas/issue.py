@@ -69,6 +69,10 @@ class IssueCreateRequest(BaseModel):
     )
     difficulty: Optional[str] = None
     github_issue_url: Optional[str] = None
+    submitter_email: Optional[str] = Field(
+        None,
+        description="Contact email for the submitter — stored for moderation only, never returned publicly.",
+    )
 
 
 class IssueListMeta(BaseModel):

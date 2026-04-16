@@ -62,11 +62,15 @@ const GITHUB_ISSUE_RE = /^https:\/\/github\.com\/.+\/issues\/\d+$/;
 
 type Difficulty = "beginner" | "intermediate" | "advanced";
 
+// Simple email format check — backend validates too
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 interface FormErrors {
   repoUrl?: string;
   title?: string;
   description?: string;
   contributionTypes?: string;
+  email?: string;
 }
 
 const DIFFICULTY_OPTIONS: Array<{
@@ -111,6 +115,9 @@ export default function PostTaskPage() {
 
   // ── Validation state ──────────────────────────────────────────────────────
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // ── Email state ───────────────────────────────────────────────────────────
+  const [email, setEmail] = useState("");
 
   // ── Submission state ──────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -212,6 +219,9 @@ export default function PostTaskPage() {
     if (selectedTypes.length === 0) {
       next.contributionTypes = "Select at least one contribution type";
     }
+    if (!email.trim() || !EMAIL_RE.test(email.trim())) {
+      next.email = "Please enter a valid email address.";
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -239,6 +249,7 @@ export default function PostTaskPage() {
         paid_amount: isPaid && paidAmount.trim() ? paidAmount.trim() : undefined,
         difficulty,
         github_issue_url: githubIssueUrl.trim() || undefined,
+        submitter_email: email.trim(),
       });
 
       setSuccessId(result.id);
@@ -301,7 +312,7 @@ export default function PostTaskPage() {
               marginBottom: "12px",
             }}
           >
-            Your task is live on Nocos.
+            Task submitted for review.
           </h1>
           <p
             style={{
@@ -312,8 +323,9 @@ export default function PostTaskPage() {
               lineHeight: 1.6,
             }}
           >
-            Contributors can now find and apply for your task. It will remain
-            active for 14 days.
+            Your task is in the moderation queue. Once approved it will be
+            visible to contributors and remain active for 14 days.
+            We may follow up at the email address you provided.
           </p>
 
           {/* CTAs */}
@@ -362,6 +374,7 @@ export default function PostTaskPage() {
                 setIsPaid(false);
                 setPaidAmount("");
                 setDifficulty("beginner");
+                setEmail("");
                 setErrors({});
                 setSubmitError(null);
                 setSuccessId(null);
@@ -829,6 +842,37 @@ export default function PostTaskPage() {
                 })}
               </div>
             </fieldset>
+
+            {/* ── Submitter email ─────────────────────────────────────── */}
+            <FieldGroup
+              id="submitter-email"
+              label="Your email address"
+              error={errors.email}
+              hint="Used only to follow up on your submission. Never shown publicly."
+            >
+              <input
+                id="submitter-email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setErrors((prev) => ({ ...prev, email: undefined }));
+                }}
+                onBlur={() => {
+                  if (email.trim() && !EMAIL_RE.test(email.trim())) {
+                    setErrors((prev) => ({
+                      ...prev,
+                      email: "Please enter a valid email address.",
+                    }));
+                  }
+                }}
+                placeholder="you@example.com"
+                required
+                aria-describedby={errors.email ? "submitter-email-error" : "submitter-email-hint"}
+                aria-invalid={!!errors.email}
+                style={inputStyle}
+              />
+            </FieldGroup>
 
             {/* ── Submit button ───────────────────────────────────────── */}
             <div>

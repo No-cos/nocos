@@ -118,6 +118,10 @@ class Task(Base):
     # Valid values: approved | pending_review | rejected
     review_status = Column(String(20), nullable=False, default="approved", index=True)
 
+    # Contact email provided by the submitter on the Post a Task form.
+    # Only stored for manual_post tasks. Never returned in any public API response.
+    submitter_email = Column(String(254), nullable=True)
+
     hidden_reason = Column(
         Enum("closed", "stale", "archived", name="hidden_reason_enum"),
         nullable=True,

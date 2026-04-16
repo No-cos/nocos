@@ -25,6 +25,10 @@ const DEFAULT_LINKS: { label: string; href: string }[] = [
   { label: "Resources", href: "/resources" },
   { label: "Events", href: "/events" },
   { label: "Blog", href: "/blog" },
+  // Admin link is only rendered in development — never shown in production.
+  ...(process.env.NODE_ENV === "development"
+    ? [{ label: "Admin", href: "/admin" }]
+    : []),
 ];
 
 export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
@@ -65,7 +69,7 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
         setMenuOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside, { passive: true });
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 

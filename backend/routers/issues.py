@@ -328,6 +328,8 @@ def create_issue(body: IssueCreateRequest, db: Session = Depends(get_db)) -> dic
         # An admin must approve before is_active=True and review_status='approved'.
         is_active=False,
         review_status="pending_review",
+        # submitter_email is stored for admin follow-up only — never in public responses.
+        submitter_email=body.submitter_email or None,
     )
     db.add(task)
     db.commit()

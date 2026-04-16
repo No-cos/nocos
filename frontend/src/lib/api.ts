@@ -188,6 +188,7 @@ export interface TaskSubmitData {
   paid_amount?: string;
   difficulty?: string;
   github_issue_url?: string;
+  submitter_email?: string;
 }
 
 /**
