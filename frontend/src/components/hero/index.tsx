@@ -16,7 +16,7 @@ export function Hero() {
     <section
       style={{
         backgroundColor: "var(--color-bg)",
-        padding: "80px 24px 64px",
+        padding: "120px 24px 100px",
         textAlign: "center",
       }}
       aria-labelledby="hero-headline"
