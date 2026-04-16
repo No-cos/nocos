@@ -424,6 +424,16 @@ html.dark .navbar-scrolled {
   }
 }
 
+/* ─── Globe ASCII — responsive font size ────────────────────────────────────── */
+.globe-ascii {
+  font-size: 1.1vw;
+}
+@media (max-width: 768px) {
+  .globe-ascii {
+    font-size: 1.8vw;
+  }
+}
+
 /* ─── Task detail — CTA wrapper ─────────────────────────────────────────────── */
 .cta-wrapper {
   max-width: 720px;

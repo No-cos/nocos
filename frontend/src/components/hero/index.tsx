@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Hero component — the first section visitors see on the landing page.
  *
@@ -5,11 +7,17 @@
  * - "Find Tasks →"  filled purple (var(--color-cta-primary))
  * - "Post Tasks"    filled cream  (var(--color-cta-secondary))
  *
+ * The ASCII globe is rendered as a decorative background layer:
+ * - position: absolute, fills the section, pointer-events: none
+ * - opacity: 0.35 so it reads as texture, not competing with the headline
+ * - mask-image fades it out toward the bottom so it blends into the marquee
+ *
  * Responsive: buttons stack vertically below 480px.
  * All colours via CSS variables — no hardcoded hex values.
  */
 
 import Link from "next/link";
+import { GlobeAnimation } from "@/components/globe";
 
 export function Hero() {
   return (
@@ -18,13 +26,56 @@ export function Hero() {
         backgroundColor: "var(--color-bg)",
         padding: "150px 24px 150px",
         textAlign: "center",
+        position: "relative",
+        overflow: "hidden",
       }}
       aria-labelledby="hero-headline"
     >
+      {/* ── Globe background layer ─────────────────────────────────────── */}
+      {/* Outer wrapper: absolute, fills section, centres the globe */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+      >
+        {/* Inner wrapper: carries opacity + mask so overflow containment
+            on the outer div is never broken by the mask-image property */}
+        <div
+          style={{
+            width: "80%",
+            height: "80%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: 0.35,
+            maskImage:
+              "linear-gradient(to bottom, black 0%, black 50%, transparent 100%)",
+            WebkitMaskImage:
+              "linear-gradient(to bottom, black 0%, black 50%, transparent 100%)",
+            pointerEvents: "none",
+          }}
+        >
+          <GlobeAnimation />
+        </div>
+      </div>
+
+      {/* ── Hero text content — sits above the globe ───────────────────── */}
       <div
         style={{
           maxWidth: "720px",
           margin: "0 auto",
+          position: "relative",
+          zIndex: 1,
         }}
       >
         {/* Headline */}
@@ -116,7 +167,6 @@ export function Hero() {
           </Link>
         </div>
       </div>
-
     </section>
   );
 }
