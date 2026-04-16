@@ -131,31 +131,37 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
           }}
           className="nav-links-desktop"
         >
-          {links.map((link) => (
-            <li key={link.href}>
-              <Link
-                href={link.href}
-                style={{
-                  fontFamily: "'Inter', sans-serif",
-                  fontWeight: 500,
-                  fontSize: "0.9375rem",
-                  color: "var(--color-text-secondary)",
-                  textDecoration: "none",
-                  transition: "color 150ms ease",
-                }}
-                onMouseEnter={(e) =>
-                  ((e.target as HTMLElement).style.color =
-                    "var(--color-text-primary)")
-                }
-                onMouseLeave={(e) =>
-                  ((e.target as HTMLElement).style.color =
-                    "var(--color-text-secondary)")
-                }
-              >
-                {link.label}
-              </Link>
-            </li>
-          ))}
+          {links.map((link) => {
+            const isActive = pathname === link.href;
+            return (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontWeight: isActive ? 600 : 500,
+                    fontSize: "0.9375rem",
+                    color: isActive
+                      ? "var(--color-cta-primary)"
+                      : "var(--color-text-secondary)",
+                    textDecoration: "none",
+                    transition: "color 150ms ease",
+                  }}
+                  onMouseEnter={(e) =>
+                    ((e.target as HTMLElement).style.color =
+                      "var(--color-cta-primary)")
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.target as HTMLElement).style.color = isActive
+                      ? "var(--color-cta-primary)"
+                      : "var(--color-text-secondary)")
+                  }
+                >
+                  {link.label}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
 
         {/* ── Right side: dark mode toggle + hamburger ───────────────── */}
@@ -263,30 +269,35 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
             }}
           >
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-              {links.map((link, i) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    onClick={() => setMenuOpen(false)}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      padding: "12px 0",
-                      fontFamily: "'Inter', sans-serif",
-                      fontSize: "15px",
-                      fontWeight: 500,
-                      color: "var(--color-text-primary)",
-                      textDecoration: "none",
-                      borderBottom:
-                        i < links.length - 1
-                          ? "1px solid var(--color-border)"
-                          : "none",
-                    }}
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
+              {links.map((link, i) => {
+                const isActive = pathname === link.href;
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      onClick={() => setMenuOpen(false)}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        padding: "12px 0",
+                        fontFamily: "'Inter', sans-serif",
+                        fontSize: "15px",
+                        fontWeight: isActive ? 600 : 500,
+                        color: isActive
+                          ? "var(--color-cta-primary)"
+                          : "var(--color-text-primary)",
+                        textDecoration: "none",
+                        borderBottom:
+                          i < links.length - 1
+                            ? "1px solid var(--color-border)"
+                            : "none",
+                      }}
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </>
