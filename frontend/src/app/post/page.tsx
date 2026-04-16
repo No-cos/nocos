@@ -485,6 +485,7 @@ export default function PostTaskPage() {
             <FieldGroup
               id="repo-url"
               label="GitHub Repo URL"
+              required
               error={errors.repoUrl ?? repoFetchError ?? undefined}
             >
               <div style={{ position: "relative" }}>
@@ -573,6 +574,7 @@ export default function PostTaskPage() {
             <FieldGroup
               id="issue-title"
               label="Issue Title"
+              required
               error={errors.title}
               counter={{ current: title.length, max: 100 }}
             >
@@ -594,6 +596,7 @@ export default function PostTaskPage() {
             <FieldGroup
               id="issue-description"
               label="Description"
+              required
               error={errors.description}
               counter={{ current: description.length, min: 50 }}
               hint="Write this for a non-technical contributor. Describe what they'll actually be doing."
@@ -846,7 +849,8 @@ export default function PostTaskPage() {
             {/* ── Submitter email ─────────────────────────────────────── */}
             <FieldGroup
               id="submitter-email"
-              label="Your email address *"
+              label="Your email address"
+              required
               error={errors.email}
               hint="Used only to follow up on your submission. Never shown publicly."
             >
@@ -966,6 +970,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
 interface FieldGroupProps {
   id: string;
   label: string;
+  required?: boolean;
   error?: string;
   hint?: string;
   counter?: { current: number; max?: number; min?: number };
@@ -976,10 +981,13 @@ interface FieldGroupProps {
  * FieldGroup — wraps an input with a label, optional hint text, inline error
  * message, and optional character counter. Wires aria-describedby so the
  * error is announced to screen readers (SKILLS.md §10).
+ *
+ * Pass required={true} to render a red asterisk after the label text.
  */
 function FieldGroup({
   id,
   label,
+  required,
   error,
   hint,
   counter,
@@ -1006,6 +1014,14 @@ function FieldGroup({
           }}
         >
           {label}
+          {required && (
+            <span
+              aria-hidden="true"
+              style={{ color: "var(--color-status-inactive)", marginLeft: "3px" }}
+            >
+              *
+            </span>
+          )}
         </label>
         {counter && (
           <span
