@@ -31,6 +31,7 @@
  */
 
 import { useState, useRef } from "react";
+import { Check } from "lucide-react";
 import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { Tag } from "@/components/ui/tag";
@@ -289,18 +290,7 @@ export default function PostTaskPage() {
               margin: "0 auto 24px",
             }}
           >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
+            <Check size={24} strokeWidth={2.5} color="#ffffff" />
           </div>
 
           <h1

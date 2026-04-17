@@ -1,3 +1,5 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
 /**
  * Pagination component — page controls for the issue discovery grid.
  *
@@ -66,7 +68,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
           disabled={currentPage === 1}
           aria-label="Previous page"
         >
-          ← Prev
+          <ChevronLeft size={14} strokeWidth={1.5} style={{ marginRight: "2px" }} />Prev
         </button>
 
         {/* Page numbers */}
@@ -95,7 +97,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
           disabled={currentPage === totalPages}
           aria-label="Next page"
         >
-          Next →
+          Next<ChevronRight size={14} strokeWidth={1.5} style={{ marginLeft: "2px" }} />
         </button>
       </div>
 

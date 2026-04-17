@@ -13,6 +13,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
+import { Search, X } from "lucide-react";
 
 interface SearchBarProps {
   value: string;
@@ -78,11 +79,12 @@ export function SearchBar({
           position: "absolute",
           left: "12px",
           color: "var(--color-text-secondary)",
-          fontSize: "14px",
           pointerEvents: "none",
+          display: "flex",
+          alignItems: "center",
         }}
       >
-        🔍
+        <Search size={14} strokeWidth={1.5} />
       </span>
 
       <input
@@ -126,7 +128,6 @@ export function SearchBar({
             border: "none",
             cursor: "pointer",
             color: "var(--color-text-secondary)",
-            fontSize: "16px",
             lineHeight: 1,
             padding: "2px",
             display: "flex",
@@ -134,7 +135,7 @@ export function SearchBar({
             justifyContent: "center",
           }}
         >
-          ×
+          <X size={14} strokeWidth={1.5} />
         </button>
       )}
     </div>

@@ -17,6 +17,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { Star, TrendingUp, Sparkles, ExternalLink, Flame, Sprout } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -259,7 +260,7 @@ function ProjectCard({ project }: { project: FeaturedProject }) {
 
         {/* Star count */}
         <span style={badgeStyle()}>
-          ⭐ {fmt(project.stars)}
+          <Star size={12} strokeWidth={1.5} />{" "}{fmt(project.stars)}
         </span>
 
         {/* Category-specific metric */}
@@ -271,7 +272,7 @@ function ProjectCard({ project }: { project: FeaturedProject }) {
               borderColor: "var(--color-status-active)",
             }}
           >
-            ↑ {fmt(project.weekly_commits)} commits
+            <TrendingUp size={12} strokeWidth={1.5} />{" "}{fmt(project.weekly_commits)} commits
           </span>
         ) : project.stars_gained_this_week != null && project.stars_gained_this_week > 0 ? (
           <span
@@ -281,7 +282,7 @@ function ProjectCard({ project }: { project: FeaturedProject }) {
               borderColor: "var(--color-cta-primary)",
             }}
           >
-            ✦ +{fmt(project.stars_gained_this_week)} stars
+            <Sparkles size={12} strokeWidth={1.5} />{" "}+{fmt(project.stars_gained_this_week)} stars
           </span>
         ) : null}
       </div>
@@ -336,7 +337,7 @@ function ProjectCard({ project }: { project: FeaturedProject }) {
             (e.currentTarget as HTMLAnchorElement).style.opacity = "1";
           }}
         >
-          GitHub ↗
+          GitHub <ExternalLink size={12} strokeWidth={1.5} style={{ marginLeft: "4px" }} />
         </a>
       </div>
     </article>
@@ -367,7 +368,7 @@ function TabButton({
   active,
   onClick,
 }: {
-  label: string;
+  label: React.ReactNode;
   active: boolean;
   onClick: () => void;
 }) {
@@ -480,12 +481,12 @@ export function FeaturedProjects() {
           }}
         >
           <TabButton
-            label="🔥 Most Active This Week"
+            label={<><Flame size={14} strokeWidth={1.5} style={{ marginRight: "6px", verticalAlign: "middle" }} />Most Active This Week</>}
             active={activeTab === "most_active"}
             onClick={() => setActiveTab("most_active")}
           />
           <TabButton
-            label="🌱 New & Promising"
+            label={<><Sprout size={14} strokeWidth={1.5} style={{ marginRight: "6px", verticalAlign: "middle" }} />New &amp; Promising</>}
             active={activeTab === "new_promising"}
             onClick={() => setActiveTab("new_promising")}
           />

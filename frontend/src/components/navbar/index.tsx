@@ -14,6 +14,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
+import { Sun, Moon, Menu, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -189,7 +190,6 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
               borderRadius: "8px",
               padding: "6px 8px",
               cursor: "pointer",
-              fontSize: "1rem",
               lineHeight: 1,
               color: "var(--color-text-secondary)",
               transition: "border-color 150ms ease",
@@ -198,7 +198,9 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
               justifyContent: "center",
             }}
           >
-            {theme === "dark" ? "☀️" : "🌙"}
+            {theme === "dark"
+              ? <Sun size={16} strokeWidth={1.5} />
+              : <Moon size={16} strokeWidth={1.5} />}
           </button>
 
           {/* Hamburger — mobile only, shown via CSS */}
@@ -215,8 +217,8 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
               padding: "6px 10px",
               cursor: "pointer",
               color: "var(--color-text-primary)",
-              fontSize: "1.125rem",
               lineHeight: 1,
+              display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -225,12 +227,14 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
             <span
               aria-hidden="true"
               style={{
-                display: "inline-block",
+                display: "inline-flex",
                 transition: "transform 200ms ease, opacity 200ms ease",
                 transform: menuOpen ? "rotate(90deg)" : "rotate(0deg)",
               }}
             >
-              {menuOpen ? "✕" : "☰"}
+              {menuOpen
+                ? <X size={20} strokeWidth={1.5} />
+                : <Menu size={20} strokeWidth={1.5} />}
             </span>
           </button>
         </div>
