@@ -60,7 +60,6 @@ export function Footer() {
       className={`reveal${inView ? " visible" : ""}`}
       style={{
         backgroundColor: "var(--color-bg)",
-        borderTop: "1px solid var(--color-border)",
       }}
     >
       {/* Main footer grid */}
