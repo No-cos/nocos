@@ -16,7 +16,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from db import SessionLocal
-from services.sync import run_scrape, run_description_backfill
+from services.sync import run_scrape, run_description_backfill, run_discovery
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +153,34 @@ class SyncTriggerBody(BaseModel):
         { "repos": ["chaoss/augur", "public-apis/public-apis"] }
     """
     repos: list[str] = []
+
+
+@router.post("/trigger-discovery")
+def trigger_discovery() -> dict:
+    """
+    Manually trigger a repo discovery run in the background.
+
+    The discovery job searches GitHub for repos not yet tracked in the DB
+    using REPO_DISCOVERY_QUERIES, then scrapes and ingests their non-code issues.
+
+    Returns 202 immediately — the discovery runs in a daemon thread. Use
+    GET /sync/status to check updated task/project counts afterwards.
+    """
+    logger.info("Manual repo discovery trigger received — starting background thread")
+
+    def _run() -> None:
+        try:
+            run_discovery(SessionLocal)
+        except Exception:
+            logger.exception("Background repo discovery failed")
+
+    threading.Thread(target=_run, daemon=True).start()
+
+    return {
+        "success": True,
+        "accepted": True,
+        "message": "Repo discovery started in background. Check /api/v1/sync/status for updated counts.",
+    }
 
 
 @router.post("/trigger")

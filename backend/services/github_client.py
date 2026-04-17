@@ -275,7 +275,7 @@ class GitHubClient:
         repo: str,
         label: str,
         page: int = 1,
-        per_page: int = 30,
+        per_page: int = 100,
     ) -> list:
         """
         Fetch open issues from a repository filtered by a single label.
@@ -437,6 +437,81 @@ class GitHubClient:
                 extra={"owner": owner, "repo": repo, "issue_number": issue_number},
             )
             return []
+
+    def search_issues(
+        self,
+        query: str,
+        sort: str = "created",
+        order: str = "desc",
+        per_page: int = 100,
+        page: int = 1,
+    ) -> list:
+        """
+        Search GitHub issues using the Search API.
+
+        Used for repo discovery — each result contains a repository_url field
+        that lets us extract new (owner, repo) pairs to seed the scrape queue.
+
+        Note: GitHub Search API enforces a separate rate limit of 30 req/min
+        (authenticated). The results are cached for 1 hour because discovery
+        queries rarely change between runs.
+
+        Args:
+            query:    GitHub issue search query string (qualifiers: label, stars,
+                      language, pushed, archived, is:open, is:issue, etc.)
+            sort:     Sort field — "created", "updated", or "comments"
+            order:    Sort order — "asc" or "desc"
+            per_page: Results per page (max 100)
+            page:     Page number
+
+        Returns:
+            List of GitHub issue objects (items array), or [] on failure.
+        """
+        # Truncate key to avoid Redis key-length issues with long queries
+        cache_key = f"search_issues:{hash(query)}:{sort}:{order}:{page}"
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            self._check_rate_limit()
+        except RateLimitLowError:
+            logger.warning(
+                "Rate limit low — skipping issue search",
+                extra={"query": query[:80]},
+            )
+            return []
+
+        def _fetch() -> list:
+            response = self._http.get(
+                "/search/issues",
+                params={
+                    "q": query,
+                    "sort": sort,
+                    "order": order,
+                    "per_page": per_page,
+                    "page": page,
+                },
+            )
+            response.raise_for_status()
+            return response.json().get("items", [])
+
+        results = retry_call(
+            _fetch,
+            fallback=[],
+            context={"query": query[:80], "page": page},
+            log=logger,
+        )
+
+        if results:
+            # Cache for 1 hour — discovery queries don't need to be fresh
+            self._cache_set(cache_key, results, ttl_seconds=3600)
+            logger.info(
+                "GitHub issue search complete",
+                extra={"query": query[:80], "count": len(results)},
+            )
+
+        return results
 
     def close(self) -> None:
         """Close the underlying HTTP client. Call on application shutdown."""

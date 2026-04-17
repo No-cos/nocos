@@ -30,9 +30,10 @@ from services.cache import app_cache
 logger = logging.getLogger(__name__)
 
 # How often each scheduled job runs
-SYNC_INTERVAL_HOURS = 6          # freshness (close/stale/archive checks)
-GITHUB_SCRAPE_INTERVAL_HOURS = 1  # new GitHub issue discovery
+SYNC_INTERVAL_HOURS = 6           # freshness (close/stale/archive checks)
+GITHUB_SCRAPE_INTERVAL_HOURS = 1  # new issues on already-tracked repos
 GITLAB_SCRAPE_INTERVAL_HOURS = 2  # new GitLab issue discovery
+DISCOVERY_INTERVAL_HOURS = 12     # search GitHub for brand-new repos to track
 
 
 # ─── Activity Score & Status ───────────────────────────────────────────────────
@@ -703,6 +704,124 @@ def run_scrape(extra_repos: list[str], session_factory) -> dict:
     return stats
 
 
+# ─── Repo Discovery ───────────────────────────────────────────────────────────
+
+def run_discovery(session_factory) -> dict:
+    """
+    Discover new repos via GitHub Search and ingest their non-code issues.
+
+    Runs REPO_DISCOVERY_QUERIES, extracts (owner, repo) pairs from the results,
+    filters out repos already tracked in the DB, then scrapes and ingests each
+    new repo using the same pipeline as run_scrape().
+
+    Called by the 12-hour discovery scheduler job and the manual trigger endpoint.
+
+    Args:
+        session_factory: SQLAlchemy sessionmaker
+
+    Returns:
+        Dict: { repos_discovered, new_repos_added, new_tasks_added,
+                descriptions_backfilled, duration_seconds }
+    """
+    from services.issue_finder.scraper import discover_repos_via_search, scrape_repo
+
+    logger.info("Repo discovery started")
+    start_time = datetime.now(tz=timezone.utc)
+
+    # Snapshot existing projects so we only scrape genuinely new repos
+    with session_factory() as session:
+        existing_pairs = {
+            (p.github_owner, p.github_repo)
+            for p in session.query(Project).all()
+        }
+
+    # Run all discovery queries
+    try:
+        all_discovered = discover_repos_via_search()
+    except Exception:
+        logger.exception("discover_repos_via_search failed — aborting discovery run")
+        return {
+            "repos_discovered": 0,
+            "new_repos_added": 0,
+            "new_tasks_added": 0,
+            "descriptions_backfilled": 0,
+            "duration_seconds": round(
+                (datetime.now(tz=timezone.utc) - start_time).total_seconds(), 2
+            ),
+        }
+
+    new_pairs = [p for p in all_discovered if p not in existing_pairs]
+
+    logger.info(
+        "Discovery: repos found",
+        extra={
+            "total_discovered": len(all_discovered),
+            "already_tracked": len(all_discovered) - len(new_pairs),
+            "new_to_scrape": len(new_pairs),
+        },
+    )
+
+    new_repos_added = 0
+    total_new_tasks = 0
+
+    if new_pairs:
+        with session_factory() as session:
+            try:
+                for owner, repo_name in new_pairs:
+                    logger.info(
+                        "Discovery: scraping new repo",
+                        extra={"owner": owner, "repo": repo_name},
+                    )
+                    try:
+                        project_data, raw_issues = scrape_repo(owner, repo_name)
+                        if project_data is None:
+                            continue
+
+                        is_new, new_tasks = _ingest_repo_issues(
+                            project_data, raw_issues, session
+                        )
+                        if is_new:
+                            new_repos_added += 1
+                        total_new_tasks += new_tasks
+
+                    except RateLimitLowError:
+                        logger.warning(
+                            "Rate limit hit during discovery scrape — stopping early",
+                            extra={"owner": owner, "repo": repo_name},
+                        )
+                        break
+                    except Exception as e:
+                        logger.error(
+                            "Discovery scrape failed for repo — skipping",
+                            extra={"owner": owner, "repo": repo_name, "error": str(e)},
+                        )
+
+                session.commit()
+
+            except Exception:
+                session.rollback()
+                logger.exception("Discovery ingest failed — rolled back")
+
+    # Backfill AI descriptions for any newly ingested tasks that didn't get one
+    try:
+        backfill_stats = run_description_backfill(session_factory)
+        descriptions_backfilled = backfill_stats.get("updated", 0)
+    except Exception:
+        logger.error("Post-discovery backfill failed — continuing")
+        descriptions_backfilled = 0
+
+    duration = (datetime.now(tz=timezone.utc) - start_time).total_seconds()
+    stats = {
+        "repos_discovered": len(all_discovered),
+        "new_repos_added": new_repos_added,
+        "new_tasks_added": total_new_tasks,
+        "descriptions_backfilled": descriptions_backfilled,
+        "duration_seconds": round(duration, 2),
+    }
+    logger.info("Repo discovery complete", extra=stats)
+    return stats
+
+
 # ─── Scheduled Job Wrappers ───────────────────────────────────────────────────
 
 def _run_scheduled_github_scrape(session_factory) -> None:
@@ -717,6 +836,19 @@ def _run_scheduled_github_scrape(session_factory) -> None:
         run_scrape([], session_factory)
     except Exception:
         logger.exception("Scheduled GitHub scrape failed")
+
+
+def _run_scheduled_discovery(session_factory) -> None:
+    """
+    APScheduler wrapper for the 12-hour repo discovery job.
+
+    Calls run_discovery() which searches GitHub for repos not yet tracked in
+    the database, then scrapes and ingests their non-code issues.
+    """
+    try:
+        run_discovery(session_factory)
+    except Exception:
+        logger.exception("Scheduled repo discovery failed")
 
 
 def _run_scheduled_gitlab_scrape(session_factory) -> None:
@@ -872,6 +1004,19 @@ def create_scheduler(session_factory) -> BackgroundScheduler:
         replace_existing=True,
     )
 
+    # 12-hour repo discovery — searches GitHub for repos not yet in the DB.
+    # Runs multi-query searches across labels, languages, and star ranges to
+    # surface mid-tier repos with active non-code contribution opportunities.
+    scheduler.add_job(
+        func=_run_scheduled_discovery,
+        trigger="interval",
+        hours=DISCOVERY_INTERVAL_HOURS,
+        kwargs={"session_factory": session_factory},
+        id="repo_discovery",
+        name="Nocos 12-hour repo discovery",
+        replace_existing=True,
+    )
+
     # Weekly featured project refresh — every Sunday at 00:00 UTC.
     # Calls the service layer to query GitHub Search, ranks results,
     # writes the snapshot to the featured_projects table, and invalidates
@@ -894,6 +1039,7 @@ def create_scheduler(session_factory) -> BackgroundScheduler:
             "freshness_interval_hours": SYNC_INTERVAL_HOURS,
             "github_scrape_interval_hours": GITHUB_SCRAPE_INTERVAL_HOURS,
             "gitlab_scrape_interval_hours": GITLAB_SCRAPE_INTERVAL_HOURS,
+            "discovery_interval_hours": DISCOVERY_INTERVAL_HOURS,
             "featured_refresh": "weekly (Sunday 00:00 UTC)",
         },
     )

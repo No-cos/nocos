@@ -118,21 +118,34 @@ _NON_CODE_SIGNAL_WORDS = frozenset({
     # Design
     "design", "figma", "ux", "accessibility", "a11y", "mockup",
     "wireframe", "visual", "prototype", "icon", "logo", "typography",
+    "illustration", "banner", "screenshot", "branding", "colours", "colors",
+    "theme", "palette", "sketch", "invision", "zeplin",
     # Documentation
     "documentation", "docs", "readme", "wiki", "writing", "content",
-    "markdown", "tutorial", "guide", "changelog", "glossary",
+    "markdown", "tutorial", "guide", "changelog", "glossary", "handbook",
+    "runbook", "playbook", "faq", "howto", "onboarding", "walkthrough",
+    "explainer", "example", "examples", "template", "templates",
     # Translation
     "translation", "translate", "locale", "localization", "i18n", "l10n",
+    "internationalisation", "internationalization", "subtitles", "captions",
     # Community
     "community", "outreach", "advocacy", "devrel", "newsletter", "announcement",
+    "forum", "discord", "slack", "contributor", "contributors", "mentoring",
+    "mentorship", "welcoming", "inclusion", "diversity",
     # Marketing
-    "marketing", "seo", "copywriting", "campaign",
+    "marketing", "seo", "copywriting", "campaign", "landing", "homepage",
+    "website", "tagline", "messaging", "brochure",
     # Research
-    "research", "survey", "usability", "feedback", "interview",
+    "research", "survey", "usability", "feedback", "interview", "personas",
+    "journey", "painpoints", "discovery",
     # Analytics
-    "analytics", "metrics", "tracking", "dashboard",
+    "analytics", "metrics", "tracking", "dashboard", "kpi", "reporting",
+    # Project management / process
+    "triage", "roadmap", "planning", "prioritisation", "prioritization",
+    "checklist", "workflow", "process", "coordination",
     # General non-code signals
-    "podcast", "blog", "conference", "meetup", "event",
+    "podcast", "blog", "conference", "meetup", "event", "webinar",
+    "presentation", "slides", "video", "demo", "showcase",
 })
 
 # Multi-word phrases checked via substring match.
@@ -145,6 +158,18 @@ _NON_CODE_SIGNAL_PHRASES = frozenset({
     "data analysis",
     "open graph",
     "style guide",
+    # Additional phrases added during filter review
+    "onboarding guide",
+    "contribution guide",
+    "contribution guidelines",
+    "getting started",
+    "project management",
+    "community management",
+    "press release",
+    "case study",
+    "best practices",
+    "design system",
+    "information architecture",
 })
 
 
@@ -251,7 +276,7 @@ def is_too_old(github_created_at: Optional[datetime]) -> bool:
     """
     Return True if an issue is older than MAX_ISSUE_AGE_DAYS.
 
-    Issues beyond 14 days are considered stale per features.md Section 7.
+    Issues older than MAX_ISSUE_AGE_DAYS are considered stale and excluded.
     None is treated as an unknown date and allowed through — better to
     include an issue with a missing date than to silently drop it.
 
@@ -274,6 +299,9 @@ def is_too_old(github_created_at: Optional[datetime]) -> bool:
         github_created_at = github_created_at.replace(tzinfo=timezone.utc)
 
     return github_created_at < cutoff
+
+
+
 
 
 def is_closed(state: str) -> bool:

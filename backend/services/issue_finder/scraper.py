@@ -7,6 +7,7 @@
 # coupled to what we ask GitHub for. The filter module uses the mapped type,
 # not the raw label string.
 
+import datetime as _dt
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -25,6 +26,70 @@ OPEN_SOURCE_LICENSES = frozenset({
     "CC-BY-4.0", "CC-BY-SA-4.0", "CC0-1.0", "Unlicense", "EUPL-1.2",
     "CDDL-1.0", "EPL-1.0", "EPL-2.0", "WTFPL", "Artistic-2.0",
 })
+
+# ── Pagination constants ────────────────────────────────────────────────────
+# Maximum number of GitHub API results per page (GitHub cap is 100).
+# Used by both scrape_issues_for_label and get_issues_by_label.
+_ISSUES_PER_PAGE = 100
+
+# How many pages to fetch per label per repo.  2 pages × 100 = up to 200
+# issues per label, giving large repos a fair chance to surface all their
+# non-code issues in a single scrape cycle.
+ISSUES_PER_LABEL_PAGES_MAX = 2
+
+# ── Discovery query helpers ─────────────────────────────────────────────────
+# Used to build date-bounded search queries without hardcoding a year.
+# "pushed after two years ago" keeps mid-tier repos in scope even if they
+# aren't updated every week.
+_PUSHED_AFTER: str = f"{_dt.date.today().year - 2}-01-01"
+
+# GitHub issue Search API queries used for repo discovery.
+# Each query targets a different slice of the open source ecosystem so the
+# scraper casts a wide net across labels, languages, and star ranges.
+#
+# Qualifiers that apply to the *repository* when used in issue search:
+#   stars:X..Y    — repository star count
+#   language:X    — repository primary language
+#   pushed:>DATE  — last push date (keeps stale repos out)
+#   archived:false — skip repos that no longer accept contributions
+#   is:public     — public repos only (implicit for unauthenticated, but explicit is safer)
+REPO_DISCOVERY_QUERIES: list[str] = [
+    # ── Documentation ─────────────────────────────────────────────────────────
+    # Mid-tier (50–500 stars) — active communities that are often overlooked
+    f"label:documentation is:open is:issue archived:false stars:50..500 pushed:>{_PUSHED_AFTER}",
+    # Larger repos — higher signal-to-noise, worth checking for non-code asks
+    f"label:documentation is:open is:issue archived:false stars:500..5000 pushed:>{_PUSHED_AFTER}",
+    # Docs with help-wanted — maintainer explicitly wants contributors
+    f'label:documentation label:"help wanted" is:open is:issue archived:false stars:50..2000',
+    # ── Design ────────────────────────────────────────────────────────────────
+    f"label:design is:open is:issue archived:false stars:50..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:ux is:open is:issue archived:false stars:50..2000",
+    f"label:accessibility is:open is:issue archived:false stars:50..2000 pushed:>{_PUSHED_AFTER}",
+    # ── Translation / i18n ────────────────────────────────────────────────────
+    f"label:translation is:open is:issue archived:false stars:50..3000",
+    f"label:i18n is:open is:issue archived:false stars:50..3000",
+    f"label:localization is:open is:issue archived:false stars:50..3000",
+    # ── Community / Outreach ──────────────────────────────────────────────────
+    f"label:community is:open is:issue archived:false stars:50..2000 pushed:>{_PUSHED_AFTER}",
+    f"label:outreach is:open is:issue archived:false stars:50..1000",
+    # ── Language-specific documentation ───────────────────────────────────────
+    # Targeting language communities separately surfaces repos that use their
+    # ecosystem's dominant language and may have different labelling conventions.
+    f"label:documentation language:python is:open is:issue archived:false stars:100..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:javascript is:open is:issue archived:false stars:100..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:typescript is:open is:issue archived:false stars:100..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:rust is:open is:issue archived:false stars:100..2000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:go is:open is:issue archived:false stars:100..2000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:java is:open is:issue archived:false stars:100..1000 pushed:>{_PUSHED_AFTER}",
+    # ── Design by language ────────────────────────────────────────────────────
+    f"label:design language:python is:open is:issue archived:false stars:50..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:design language:javascript is:open is:issue archived:false stars:50..1000 pushed:>{_PUSHED_AFTER}",
+    # ── Catch-alls paired with explicit non-code labels ────────────────────────
+    f'label:"good first issue" label:documentation is:open is:issue archived:false stars:50..1000',
+    f'label:"good first issue" label:design is:open is:issue archived:false stars:50..1000',
+    f'label:"help wanted" label:documentation is:open is:issue archived:false stars:50..500',
+    f'label:"help wanted" label:design is:open is:issue archived:false stars:50..500',
+]
 
 # All labels we actively search for on GitHub.
 # Organised by contribution type — the filter module narrows results further.
@@ -315,6 +380,7 @@ def scrape_issues_for_label(
     repo_name: str,
     label: str,
     page: int = 1,
+    per_page: int = _ISSUES_PER_PAGE,
 ) -> list[dict]:
     """
     Fetch open issues from a single repo filtered by a single label.
@@ -331,6 +397,7 @@ def scrape_issues_for_label(
         repo_name: Repository name
         label:     The label to filter by (one of NON_CODE_LABELS)
         page:      Page number for pagination
+        per_page:  Results per page (max 100, default _ISSUES_PER_PAGE)
 
     Returns:
         List of structured issue dicts, or [] if the fetch fails.
@@ -340,6 +407,7 @@ def scrape_issues_for_label(
         repo=repo_name,
         label=label,
         page=page,
+        per_page=per_page,
     )
 
     structured = []
@@ -407,13 +475,23 @@ def scrape_repo(owner: str, repo_name: str) -> tuple[Optional[dict], list[dict]]
 
     for label in NON_CODE_LABELS:
         try:
-            issues = scrape_issues_for_label(owner, repo_name, label)
-            for issue in issues:
-                issue_id = issue["github_issue_id"]
-                # Deduplicate — same issue can match multiple labels
-                if issue_id not in seen_ids:
-                    seen_ids.add(issue_id)
-                    all_issues.append(issue)
+            # Paginate: fetch up to ISSUES_PER_LABEL_PAGES_MAX pages per label.
+            # A page shorter than _ISSUES_PER_PAGE means we've hit the last page.
+            for page_num in range(1, ISSUES_PER_LABEL_PAGES_MAX + 1):
+                page_issues = scrape_issues_for_label(
+                    owner, repo_name, label, page=page_num
+                )
+                for issue in page_issues:
+                    issue_id = issue["github_issue_id"]
+                    # Deduplicate — same issue can match multiple labels
+                    if issue_id not in seen_ids:
+                        seen_ids.add(issue_id)
+                        all_issues.append(issue)
+
+                # Fewer results than a full page means this was the last page
+                if len(page_issues) < _ISSUES_PER_PAGE:
+                    break
+
         except RateLimitLowError:
             # Rate limit hit mid-scrape — stop here and process what we have.
             # The next sync cycle will pick up where we left off.
@@ -435,3 +513,73 @@ def scrape_repo(owner: str, repo_name: str) -> tuple[Optional[dict], list[dict]]
         extra={"owner": owner, "repo": repo_name, "issues_found": len(all_issues)},
     )
     return project_data, all_issues
+
+
+def discover_repos_via_search(max_repos_per_query: int = 15) -> list[tuple[str, str]]:
+    """
+    Discover new repos to scrape by running REPO_DISCOVERY_QUERIES via the
+    GitHub Search API.
+
+    Each query targets a different slice of the ecosystem (label, language,
+    star range). Results are deduplicated so a repo that appears in multiple
+    queries is only returned once.
+
+    Callers (run_discovery in sync.py) are responsible for filtering out repos
+    already in the database before scraping them.
+
+    Args:
+        max_repos_per_query: Maximum unique repos to extract per search query.
+                             Capped to keep the total scrape time and GitHub
+                             API quota usage predictable.
+
+    Returns:
+        Deduplicated list of (owner, repo_name) tuples found across all queries.
+    """
+    seen: set[tuple[str, str]] = set()
+    repos: list[tuple[str, str]] = []
+
+    for query in REPO_DISCOVERY_QUERIES:
+        try:
+            issues = github_client.search_issues(query, per_page=100, page=1)
+        except RateLimitLowError:
+            logger.warning(
+                "Rate limit hit during repo discovery — stopping early",
+                extra={"query": query[:80]},
+            )
+            break
+        except Exception as e:
+            logger.error(
+                "Discovery query failed — skipping",
+                extra={"query": query[:80], "error": str(e)},
+            )
+            continue
+
+        query_new = 0
+        for item in issues:
+            # Each search result includes a repository_url like:
+            # "https://api.github.com/repos/owner/repo"
+            repo_url = item.get("repository_url", "")
+            if not repo_url:
+                continue
+            parts = repo_url.rstrip("/").split("/")
+            if len(parts) < 2:
+                continue
+            owner_name, repo_name = parts[-2], parts[-1]
+            pair = (owner_name, repo_name)
+            if pair not in seen:
+                seen.add(pair)
+                repos.append(pair)
+                query_new += 1
+                if query_new >= max_repos_per_query:
+                    break
+
+        logger.debug(
+            "Discovery query complete",
+            extra={"query": query[:80], "new_repos": query_new},
+        )
+
+    logger.info(
+        "Repo discovery complete",
+        extra={"total_repos": len(repos), "queries_run": len(REPO_DISCOVERY_QUERIES)},
+    )
+    return repos
