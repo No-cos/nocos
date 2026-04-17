@@ -16,12 +16,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create the program_status_enum type first
-    program_status_enum = sa.Enum(
-        "upcoming", "open", "closed", name="program_status_enum"
-    )
-    program_status_enum.create(op.get_bind(), checkfirst=True)
+    # Create the enum type with an idempotent DO block so a partially-applied
+    # migration (e.g. from a previous failed deploy that created the type but
+    # not the table) doesn't raise "type already exists" on retry.
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE program_status_enum AS ENUM ('upcoming', 'open', 'closed');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+    """)
 
+    # create_type=False on the Enum tells SQLAlchemy not to issue a second
+    # CREATE TYPE inside create_table — we handle it ourselves above.
     op.create_table(
         "programs",
         sa.Column(
@@ -42,7 +49,7 @@ def upgrade() -> None:
         sa.Column("application_url", sa.String(2048), nullable=False),
         sa.Column(
             "status",
-            sa.Enum("upcoming", "open", "closed", name="program_status_enum"),
+            sa.Enum("upcoming", "open", "closed", name="program_status_enum", create_type=False),
             nullable=False,
             server_default="upcoming",
         ),
@@ -74,4 +81,4 @@ def downgrade() -> None:
     op.drop_index("ix_programs_is_active", table_name="programs")
     op.drop_index("ix_programs_status", table_name="programs")
     op.drop_table("programs")
-    sa.Enum(name="program_status_enum").drop(op.get_bind(), checkfirst=True)
+    op.execute("DROP TYPE IF EXISTS program_status_enum;")
