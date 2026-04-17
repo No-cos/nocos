@@ -217,6 +217,71 @@ def reject_task(
     return {"success": True, "id": task_id, "review_status": "rejected"}
 
 
+@router.delete("/tasks/{task_id}", include_in_schema=False)
+def delete_task(task_id: str, request: Request, db: Session = Depends(get_db)) -> dict:
+    """
+    Permanently delete a task by ID.
+    Protected by ADMIN_SECRET_TOKEN. Returns 404 if not found.
+    """
+    _check_admin(request)
+
+    try:
+        uid = UUID(task_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    task = db.query(Task).filter(Task.id == uid).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    try:
+        db.delete(task)
+        db.commit()
+        logger.info("Task deleted by admin", extra={"task_id": task_id})
+        return {"success": True, "id": task_id}
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to delete task", extra={"task_id": task_id})
+        raise HTTPException(status_code=500, detail="Failed to delete task")
+
+
+@router.get("/tasks", include_in_schema=False)
+def list_all_tasks(request: Request, db: Session = Depends(get_db)) -> dict:
+    """
+    Return all tasks (any status) for the admin management table.
+    Ordered by created_at descending (newest first).
+    """
+    _check_admin(request)
+
+    tasks = (
+        db.query(Task)
+        .options(joinedload(Task.project))
+        .order_by(Task.created_at.desc())
+        .all()
+    )
+
+    return {
+        "success": True,
+        "count": len(tasks),
+        "data": [
+            {
+                "id": str(t.id),
+                "title": t.title,
+                "contribution_type": t.contribution_type,
+                "review_status": t.review_status,
+                "is_active": t.is_active,
+                "source": t.source,
+                "created_at": t.created_at.isoformat(),
+                "project": {
+                    "github_owner": t.project.github_owner,
+                    "github_repo": t.project.github_repo,
+                },
+            }
+            for t in tasks
+        ],
+    }
+
+
 @router.get("/stats", include_in_schema=False)
 def moderation_stats(request: Request, db: Session = Depends(get_db)) -> dict:
     """

@@ -19,6 +19,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { Trash2 } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const STORAGE_KEY = "admin_token";
@@ -57,6 +58,20 @@ interface ModerationStats {
   pending_review: number;
   approved: number;
   rejected: number;
+}
+
+interface AllTask {
+  id: string;
+  title: string;
+  contribution_type: string;
+  review_status: string;
+  is_active: boolean;
+  source: string;
+  created_at: string;
+  project: {
+    github_owner: string;
+    github_repo: string;
+  };
 }
 
 interface Toast {
@@ -103,6 +118,12 @@ export default function AdminPage() {
   const [stats, setStats] = useState<ModerationStats | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // All-tasks management table
+  const [allTasks, setAllTasks] = useState<AllTask[]>([]);
+  const [allTasksLoading, setAllTasksLoading] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+
   // Cards being removed via fade-out animation
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
 
@@ -127,14 +148,19 @@ export default function AdminPage() {
 
   const loadDashboard = useCallback(async (t: string) => {
     setLoading(true);
+    setAllTasksLoading(true);
     try {
-      const [pendingRes, statsRes] = await Promise.all([
+      const [pendingRes, statsRes, allRes] = await Promise.all([
         adminFetch<{ success: boolean; count: number; data: PendingTask[] }>(
           "/api/v1/admin/pending",
           t
         ),
         adminFetch<{ success: boolean } & ModerationStats>(
           "/api/v1/admin/stats",
+          t
+        ),
+        adminFetch<{ success: boolean; count: number; data: AllTask[] }>(
+          "/api/v1/admin/tasks",
           t
         ),
       ]);
@@ -144,10 +170,12 @@ export default function AdminPage() {
         approved: statsRes.approved,
         rejected: statsRes.rejected,
       });
+      setAllTasks(allRes.data);
     } catch {
       showToast("Failed to load data. Check your connection.", "error");
     } finally {
       setLoading(false);
+      setAllTasksLoading(false);
     }
   }, []);
 
@@ -272,6 +300,28 @@ export default function AdminPage() {
   function openRejectPanel(taskId: string) {
     setRejectReason(REJECTION_REASONS[0]);
     setRejectingTaskId(taskId);
+  }
+
+  // ── Delete task (management table) ─────────────────────────────────────────
+
+  async function handleDeleteTask(taskId: string) {
+    setConfirmDeleteId(null);
+    setDeletingIds((prev) => new Set(prev).add(taskId));
+    try {
+      await adminFetch(`/api/v1/admin/tasks/${taskId}`, token, {
+        method: "DELETE",
+      });
+      setAllTasks((prev) => prev.filter((t) => t.id !== taskId));
+      showToast("Task deleted", "success");
+    } catch {
+      showToast("Delete failed. Please try again.", "error");
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    }
   }
 
   // ── Login form ──────────────────────────────────────────────────────────────
@@ -624,7 +674,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Task cards */}
+        {/* ── Pending task cards ─────────────────────────────────────── */}
         {!loading && (
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             {tasks.map((task) => {
@@ -870,6 +920,259 @@ export default function AdminPage() {
             })}
           </div>
         )}
+        {/* ── All Tasks management table ─────────────────────────────── */}
+        <div style={{ marginTop: "56px" }}>
+          <h2
+            style={{
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 700,
+              fontSize: "1.125rem",
+              color: "var(--color-text-primary)",
+              margin: "0 0 20px",
+            }}
+          >
+            All Tasks ({allTasks.length})
+          </h2>
+
+          {allTasksLoading && (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "40px 0",
+                fontFamily: "'Inter', sans-serif",
+                fontSize: "0.9375rem",
+                color: "var(--color-text-secondary)",
+              }}
+            >
+              Loading…
+            </div>
+          )}
+
+          {!allTasksLoading && allTasks.length === 0 && (
+            <p
+              style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: "0.9375rem",
+                color: "var(--color-text-secondary)",
+                padding: "32px 0",
+                textAlign: "center",
+              }}
+            >
+              No tasks in the database.
+            </p>
+          )}
+
+          {!allTasksLoading && allTasks.length > 0 && (
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontFamily: "'Inter', sans-serif",
+                  fontSize: "0.8125rem",
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{
+                      borderBottom: "1px solid var(--color-border)",
+                      textAlign: "left",
+                    }}
+                  >
+                    {(["Repo", "Title", "Category", "Status", "Date added", ""] as const).map(
+                      (col) => (
+                        <th
+                          key={col}
+                          style={{
+                            padding: "10px 12px",
+                            fontWeight: 600,
+                            color: "var(--color-text-secondary)",
+                            whiteSpace: "nowrap",
+                          }}
+                          className={
+                            col === "Category" || col === "Status" || col === "Date added"
+                              ? "admin-col-hide-mobile"
+                              : undefined
+                          }
+                        >
+                          {col}
+                        </th>
+                      )
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {allTasks.map((task) => {
+                    const isDeleting = deletingIds.has(task.id);
+                    const isConfirming = confirmDeleteId === task.id;
+                    const repo = `${task.project.github_owner}/${task.project.github_repo}`;
+                    const title =
+                      task.title.length > 60
+                        ? task.title.slice(0, 60) + "…"
+                        : task.title;
+
+                    return (
+                      <tr
+                        key={task.id}
+                        style={{
+                          borderBottom: "1px solid var(--color-border)",
+                          opacity: isDeleting ? 0.4 : 1,
+                          transition: "opacity 200ms ease",
+                          backgroundColor: isConfirming
+                            ? "color-mix(in srgb, var(--color-status-inactive) 6%, transparent)"
+                            : "transparent",
+                        }}
+                      >
+                        {/* Repo */}
+                        <td
+                          style={{
+                            padding: "12px 12px",
+                            color: "var(--color-text-secondary)",
+                            whiteSpace: "nowrap",
+                            maxWidth: "160px",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {repo}
+                        </td>
+
+                        {/* Title */}
+                        <td
+                          style={{
+                            padding: "12px 12px",
+                            color: "var(--color-text-primary)",
+                            maxWidth: "280px",
+                          }}
+                        >
+                          {title}
+                        </td>
+
+                        {/* Category — hidden on mobile */}
+                        <td
+                          className="admin-col-hide-mobile"
+                          style={{
+                            padding: "12px 12px",
+                            color: "var(--color-text-secondary)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {task.contribution_type.replace(/_/g, " ")}
+                        </td>
+
+                        {/* Status — hidden on mobile */}
+                        <td
+                          className="admin-col-hide-mobile"
+                          style={{ padding: "12px 12px", whiteSpace: "nowrap" }}
+                        >
+                          <span
+                            style={{
+                              display: "inline-block",
+                              padding: "2px 8px",
+                              borderRadius: "999px",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              backgroundColor:
+                                task.review_status === "approved"
+                                  ? "color-mix(in srgb, var(--color-status-active) 15%, transparent)"
+                                  : task.review_status === "rejected"
+                                  ? "color-mix(in srgb, var(--color-status-inactive) 15%, transparent)"
+                                  : "color-mix(in srgb, var(--color-status-slow) 15%, transparent)",
+                              color:
+                                task.review_status === "approved"
+                                  ? "var(--color-status-active)"
+                                  : task.review_status === "rejected"
+                                  ? "var(--color-status-inactive)"
+                                  : "var(--color-status-slow)",
+                            }}
+                          >
+                            {task.review_status === "pending_review"
+                              ? "pending"
+                              : task.review_status}
+                          </span>
+                        </td>
+
+                        {/* Date — hidden on mobile */}
+                        <td
+                          className="admin-col-hide-mobile"
+                          style={{
+                            padding: "12px 12px",
+                            color: "var(--color-text-secondary)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {new Date(task.created_at).toLocaleDateString(
+                            undefined,
+                            { dateStyle: "medium" }
+                          )}
+                        </td>
+
+                        {/* Delete */}
+                        <td
+                          style={{
+                            padding: "12px 12px",
+                            textAlign: "right",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {isConfirming ? (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "8px",
+                              }}
+                            >
+                              <button
+                                onClick={() => handleDeleteTask(task.id)}
+                                disabled={isDeleting}
+                                style={deleteBtnStyle(true)}
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteId(null)}
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  fontFamily: "'Inter', sans-serif",
+                                  fontSize: "0.8125rem",
+                                  color: "var(--color-text-secondary)",
+                                  cursor: "pointer",
+                                  padding: 0,
+                                  textDecoration: "underline",
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDeleteId(task.id)}
+                              disabled={isDeleting}
+                              aria-label={`Delete task: ${task.title}`}
+                              style={deleteBtnStyle(false)}
+                              onMouseEnter={(e) => {
+                                if (!isDeleting)
+                                  (e.currentTarget as HTMLElement).style.opacity = "0.8";
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!isDeleting)
+                                  (e.currentTarget as HTMLElement).style.opacity = "1";
+                              }}
+                            >
+                              <Trash2 size={14} strokeWidth={1.5} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -892,6 +1195,29 @@ function MetaChip({ label, value }: { label: string; value: string }) {
       {value}
     </span>
   );
+}
+
+// ── deleteBtnStyle ────────────────────────────────────────────────────────────
+
+function deleteBtnStyle(confirm: boolean): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: confirm ? "5px 12px" : "5px 8px",
+    backgroundColor: confirm
+      ? "var(--color-status-inactive)"
+      : "color-mix(in srgb, var(--color-status-inactive) 12%, transparent)",
+    color: confirm ? "#ffffff" : "var(--color-status-inactive)",
+    border: `1px solid ${confirm ? "var(--color-status-inactive)" : "color-mix(in srgb, var(--color-status-inactive) 30%, transparent)"}`,
+    borderRadius: "6px",
+    fontFamily: "'Inter', sans-serif",
+    fontWeight: 600,
+    fontSize: "0.8125rem",
+    cursor: "pointer",
+    transition: "opacity 150ms ease",
+    gap: "4px",
+  };
 }
 
 // ── actionBtnStyle ────────────────────────────────────────────────────────────

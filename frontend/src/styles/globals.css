@@ -336,6 +336,13 @@ html.dark .navbar-scrolled {
   }
 }
 
+/* ─── Admin task table — hide detail columns on mobile ──────────────────────── */
+@media (max-width: 639px) {
+  .admin-col-hide-mobile {
+    display: none;
+  }
+}
+
 /* ─── Featured projects grid — 3 columns desktop, 1 mobile ─────────────────── */
 .featured-grid {
   display: grid;
