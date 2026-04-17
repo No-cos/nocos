@@ -3,11 +3,20 @@
 Revision ID: 0007
 Revises: 0006
 Create Date: 2026-04-17
+
+Fully idempotent — mirrors the pattern used in 0001 and 0005:
+  - conn.execute(sa.text(...)) with raw SQL throughout
+  - DO $$ BEGIN ... EXCEPTION WHEN duplicate_object ... END $$; for enum creation
+  - CREATE TABLE IF NOT EXISTS so a partial previous run never blocks a retry
+  - CREATE INDEX IF NOT EXISTS for the same reason
+
+This avoids op.create_table() entirely, which was emitting a bare
+CREATE TYPE regardless of create_type=False and causing a
+DuplicateObject error on re-run after a partial deployment.
 """
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 revision = "0007"
 down_revision = "0006"
@@ -16,69 +25,52 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create the enum type with an idempotent DO block so a partially-applied
-    # migration (e.g. from a previous failed deploy that created the type but
-    # not the table) doesn't raise "type already exists" on retry.
-    op.execute("""
+    conn = op.get_bind()
+
+    # Create the ENUM type — idempotent
+    conn.execute(sa.text("""
         DO $$ BEGIN
             CREATE TYPE program_status_enum AS ENUM ('upcoming', 'open', 'closed');
         EXCEPTION
             WHEN duplicate_object THEN null;
         END $$;
-    """)
+    """))
 
-    # create_type=False on the Enum tells SQLAlchemy not to issue a second
-    # CREATE TYPE inside create_table — we handle it ourselves above.
-    op.create_table(
-        "programs",
-        sa.Column(
-            "id",
-            postgresql.UUID(as_uuid=True),
-            primary_key=True,
-            nullable=False,
-        ),
-        sa.Column("name", sa.String(255), nullable=False),
-        sa.Column("organisation", sa.String(255), nullable=False),
-        sa.Column("logo_url", sa.String(2048), nullable=True),
-        sa.Column("description", sa.Text(), nullable=False),
-        sa.Column("stipend_range", sa.String(100), nullable=False),
-        sa.Column("application_open", sa.Date(), nullable=True),
-        sa.Column("application_deadline", sa.Date(), nullable=True),
-        sa.Column("program_start", sa.Date(), nullable=True),
-        sa.Column("tags", postgresql.JSON(astext_type=sa.Text()), nullable=False, server_default="[]"),
-        sa.Column("application_url", sa.String(2048), nullable=False),
-        sa.Column(
-            "status",
-            sa.Enum("upcoming", "open", "closed", name="program_status_enum", create_type=False),
-            nullable=False,
-            server_default="upcoming",
-        ),
-        sa.Column(
-            "is_active",
-            sa.Boolean(),
-            nullable=False,
-            server_default="true",
-        ),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            nullable=False,
-            server_default=sa.func.now(),
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            nullable=False,
-            server_default=sa.func.now(),
-        ),
-    )
+    # Create the table — idempotent
+    conn.execute(sa.text("""
+        CREATE TABLE IF NOT EXISTS programs (
+            id                   UUID            NOT NULL PRIMARY KEY,
+            name                 VARCHAR(255)    NOT NULL,
+            organisation         VARCHAR(255)    NOT NULL,
+            logo_url             VARCHAR(2048),
+            description          TEXT            NOT NULL,
+            stipend_range        VARCHAR(100)    NOT NULL,
+            application_open     DATE,
+            application_deadline DATE,
+            program_start        DATE,
+            tags                 JSON            NOT NULL DEFAULT '[]',
+            application_url      VARCHAR(2048)   NOT NULL,
+            status               program_status_enum NOT NULL DEFAULT 'upcoming',
+            is_active            BOOLEAN         NOT NULL DEFAULT TRUE,
+            created_at           TIMESTAMPTZ     NOT NULL DEFAULT now(),
+            updated_at           TIMESTAMPTZ     NOT NULL DEFAULT now()
+        );
+    """))
 
-    op.create_index("ix_programs_status", "programs", ["status"])
-    op.create_index("ix_programs_is_active", "programs", ["is_active"])
+    conn.execute(sa.text("""
+        CREATE INDEX IF NOT EXISTS ix_programs_status
+            ON programs (status);
+    """))
+
+    conn.execute(sa.text("""
+        CREATE INDEX IF NOT EXISTS ix_programs_is_active
+            ON programs (is_active);
+    """))
 
 
 def downgrade() -> None:
-    op.drop_index("ix_programs_is_active", table_name="programs")
-    op.drop_index("ix_programs_status", table_name="programs")
-    op.drop_table("programs")
-    op.execute("DROP TYPE IF EXISTS program_status_enum;")
+    conn = op.get_bind()
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_programs_is_active;"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_programs_status;"))
+    conn.execute(sa.text("DROP TABLE IF EXISTS programs;"))
+    conn.execute(sa.text("DROP TYPE IF EXISTS program_status_enum;"))
