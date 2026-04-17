@@ -389,6 +389,9 @@ function TabButton({
         cursor: "pointer",
         transition: "color var(--transition-speed), border-color var(--transition-speed)",
         whiteSpace: "nowrap",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
       }}
     >
       {label}
@@ -481,12 +484,12 @@ export function FeaturedProjects() {
           }}
         >
           <TabButton
-            label={<><Flame size={14} strokeWidth={1.5} style={{ marginRight: "6px", verticalAlign: "middle" }} />Most Active This Week</>}
+            label={<><Flame size={14} strokeWidth={1.5} />Most Active This Week</>}
             active={activeTab === "most_active"}
             onClick={() => setActiveTab("most_active")}
           />
           <TabButton
-            label={<><Sprout size={14} strokeWidth={1.5} style={{ marginRight: "6px", verticalAlign: "middle" }} />New &amp; Promising</>}
+            label={<><Sprout size={14} strokeWidth={1.5} />New &amp; Promising</>}
             active={activeTab === "new_promising"}
             onClick={() => setActiveTab("new_promising")}
           />
