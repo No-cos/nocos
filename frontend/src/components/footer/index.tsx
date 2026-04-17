@@ -22,7 +22,7 @@ const NAV_LINKS = [
   { label: "Resources", href: "/resources" },
   { label: "Events", href: "/events" },
   { label: "Blog", href: "/blog" },
-  { label: "GitHub", href: "https://github.com/No-cos/nocos", external: true },
+  { label: "Guidelines", href: "/guidelines" },
 ];
 
 const SOCIAL_LINKS = [
