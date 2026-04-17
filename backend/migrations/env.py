@@ -23,6 +23,7 @@ from models.base import Base
 from models.project import Project      # noqa: F401
 from models.task import Task            # noqa: F401
 from models.subscriber import Subscriber  # noqa: F401
+from models.program import Program      # noqa: F401
 
 # Alembic Config object — provides access to values in alembic.ini
 alembic_config = context.config

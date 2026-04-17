@@ -7,5 +7,6 @@ from models.base import Base
 from models.project import Project
 from models.task import Task
 from models.subscriber import Subscriber
+from models.program import Program
 
-__all__ = ["Base", "Project", "Task", "Subscriber"]
+__all__ = ["Base", "Project", "Task", "Subscriber", "Program"]

@@ -216,6 +216,45 @@ export async function submitTask(
   return response.data;
 }
 
+// ─── Programs ─────────────────────────────────────────────────────────────────
+
+export interface Program {
+  id: string;
+  name: string;
+  organisation: string;
+  logo_url: string | null;
+  description: string;
+  stipend_range: string;
+  application_open: string | null;   // ISO date string
+  application_deadline: string | null;
+  program_start: string | null;
+  tags: string[];
+  application_url: string;
+  status: "upcoming" | "open" | "closed";
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProgramListResponse {
+  success: boolean;
+  data: Program[];
+  meta: { total: number };
+}
+
+/**
+ * Fetch active programs with an optional status filter.
+ * Maps to GET /api/v1/programs.
+ *
+ * @param status - Optional filter: "upcoming" | "open" | "closed"
+ */
+export async function fetchPrograms(
+  status?: "upcoming" | "open" | "closed"
+): Promise<ProgramListResponse> {
+  const query = status ? `?status=${status}` : "";
+  return apiFetch<ProgramListResponse>(`/api/v1/programs${query}`);
+}
+
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 export interface Stats {

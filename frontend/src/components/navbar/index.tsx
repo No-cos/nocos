@@ -23,6 +23,7 @@ import type { NavbarProps } from "./types";
 
 const DEFAULT_LINKS: { label: string; href: string }[] = [
   { label: "Home", href: "/" },
+  { label: "Programs", href: "/programs" },
   { label: "Resources", href: "/resources" },
   { label: "Events", href: "/events" },
   { label: "Blog", href: "/blog" },

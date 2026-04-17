@@ -46,6 +46,17 @@
   --color-bounty-border: #FDE68A;
   --color-bounty-text: #92400E;
 
+  /* Program status badge colors */
+  --color-program-open-bg: #F0FDF4;
+  --color-program-open-border: #86EFAC;
+  --color-program-open-text: #166534;
+  --color-program-upcoming-bg: #EFF6FF;
+  --color-program-upcoming-border: #93C5FD;
+  --color-program-upcoming-text: #1E40AF;
+  --color-program-closed-bg: #F9FAFB;
+  --color-program-closed-border: #D1D5DB;
+  --color-program-closed-text: #6B7280;
+
   /* Tag border colors — one per contribution type */
   --tag-design: #A78BFA;
   --tag-documentation: #60A5FA;
@@ -87,6 +98,17 @@ html.dark {
   --color-bounty-bg: #1C1400;
   --color-bounty-border: #78530A;
   --color-bounty-text: #FDE68A;
+
+  /* Program status badge colors — dark mode variants */
+  --color-program-open-bg: #052E16;
+  --color-program-open-border: #166534;
+  --color-program-open-text: #86EFAC;
+  --color-program-upcoming-bg: #1E3A5F;
+  --color-program-upcoming-border: #1E40AF;
+  --color-program-upcoming-text: #93C5FD;
+  --color-program-closed-bg: #1F2937;
+  --color-program-closed-border: #374151;
+  --color-program-closed-text: #9CA3AF;
 }
 
 /* ─── Base Styles ───────────────────────────────────────────────────────────── */
