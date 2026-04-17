@@ -60,18 +60,27 @@ export function SubscribeSection() {
   }
 
   return (
+    /* Outer section: no background, just vertical breathing room + horizontal gutter */
     <section
       ref={ref}
       className={`reveal${inView ? " visible" : ""}`}
       style={{
-        backgroundColor: "var(--color-surface)",
-        borderTop: "1px solid var(--color-border)",
-        borderBottom: "1px solid var(--color-border)",
         padding: "64px 24px",
-        textAlign: "center",
       }}
       aria-labelledby="subscribe-headline"
     >
+      {/* Constrained pill — background, border, and rounded corners live here */}
+      <div
+        style={{
+          maxWidth: "var(--content-max-width)",
+          margin: "0 auto",
+          backgroundColor: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+          borderRadius: "20px",
+          padding: "64px 24px",
+          textAlign: "center",
+        }}
+      >
       <div style={{ maxWidth: "560px", margin: "0 auto" }}>
         <h2
           id="subscribe-headline"
@@ -224,6 +233,7 @@ export function SubscribeSection() {
             )}
           </form>
         )}
+      </div>
       </div>
 
     </section>
