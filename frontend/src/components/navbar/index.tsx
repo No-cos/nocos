@@ -218,7 +218,6 @@ export function Navbar({ links = DEFAULT_LINKS }: NavbarProps) {
               cursor: "pointer",
               color: "var(--color-text-primary)",
               lineHeight: 1,
-              display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
