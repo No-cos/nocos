@@ -115,20 +115,9 @@ export function Footer() {
             >
               {NAV_LINKS.map((link) => (
                 <li key={link.href}>
-                  {link.external ? (
-                    <a
-                      href={link.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={footerLinkStyle}
-                    >
-                      {link.label}
-                    </a>
-                  ) : (
-                    <Link href={link.href} style={footerLinkStyle}>
-                      {link.label}
-                    </Link>
-                  )}
+                  <Link href={link.href} style={footerLinkStyle}>
+                    {link.label}
+                  </Link>
                 </li>
               ))}
             </ul>
