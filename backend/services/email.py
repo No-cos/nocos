@@ -67,7 +67,7 @@ def send_confirmation_email(email: str, subscriber_id: str) -> bool:
         return False
 
     confirm_url = (
-        f"{config.NEXT_PUBLIC_API_URL}/api/v1/subscribe/confirm/{subscriber_id}"
+        f"{config.BACKEND_URL}/api/v1/subscribe/confirm/{subscriber_id}"
     )
 
     resend.api_key = config.EMAIL_SERVICE_API_KEY

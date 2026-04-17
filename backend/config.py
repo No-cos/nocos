@@ -39,6 +39,10 @@ class Config:
     # Frontend base URL — used in confirmation email links
     NEXT_PUBLIC_API_URL: str = os.getenv("NEXT_PUBLIC_API_URL", "http://localhost:3000")
 
+    # Backend base URL — used to build confirmation links in emails.
+    # Must point to the live Railway URL in production, e.g. https://nocos-backend.up.railway.app
+    BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8000")
+
     # Public frontend URL — used in admin emails to link back to approved tasks.
     # Set to https://nocos.cc in production; defaults to localhost for local dev.
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://nocos.cc")
