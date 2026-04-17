@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from config import config
 from db import get_db
+from models.subscriber import Subscriber
 from models.task import Task
 from services.email import send_approval_email, send_rejection_email
 
@@ -296,9 +297,17 @@ def moderation_stats(request: Request, db: Session = Depends(get_db)) -> dict:
     )
 
     counts = {status: count for status, count in rows}
+
+    confirmed_subscribers = (
+        db.query(func.count(Subscriber.id))
+        .filter(Subscriber.confirmed == True)
+        .scalar()
+    ) or 0
+
     return {
         "success": True,
         "pending_review": counts.get("pending_review", 0),
         "approved": counts.get("approved", 0),
         "rejected": counts.get("rejected", 0),
+        "total_subscribers": confirmed_subscribers,
     }

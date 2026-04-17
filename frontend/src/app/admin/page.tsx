@@ -58,6 +58,7 @@ interface ModerationStats {
   pending_review: number;
   approved: number;
   rejected: number;
+  total_subscribers: number;
 }
 
 interface AllTask {
@@ -169,6 +170,7 @@ export default function AdminPage() {
         pending_review: statsRes.pending_review,
         approved: statsRes.approved,
         rejected: statsRes.rejected,
+        total_subscribers: statsRes.total_subscribers ?? 0,
       });
       setAllTasks(allRes.data);
     } catch {
@@ -587,6 +589,11 @@ export default function AdminPage() {
                   label: "Rejected",
                   value: stats.rejected,
                   color: "var(--color-status-inactive)",
+                },
+                {
+                  label: "Subscribers",
+                  value: stats.total_subscribers,
+                  color: "var(--color-cta-primary)",
                 },
               ] as const
             ).map(({ label, value, color }) => (
