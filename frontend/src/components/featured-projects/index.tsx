@@ -319,21 +319,21 @@ function ProjectCard({ project }: { project: FeaturedProject }) {
             width: "100%",
             fontFamily: "'Inter', sans-serif",
             fontSize: "13px",
-            fontWeight: 500,
-            color: "var(--color-text-primary)",
-            backgroundColor: "transparent",
-            border: "1.5px solid var(--color-border)",
+            fontWeight: 600,
+            color: "#0F0F0F",
+            backgroundColor: "#FFFFFF",
+            border: "none",
             borderRadius: "8px",
             padding: "7px 12px",
             textDecoration: "none",
-            transition: "border-color 120ms ease",
+            transition: "opacity 120ms ease",
             boxSizing: "border-box",
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--color-text-secondary)";
+            (e.currentTarget as HTMLAnchorElement).style.opacity = "0.88";
           }}
           onMouseLeave={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--color-border)";
+            (e.currentTarget as HTMLAnchorElement).style.opacity = "1";
           }}
         >
           GitHub ↗
