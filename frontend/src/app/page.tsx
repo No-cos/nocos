@@ -53,9 +53,6 @@ export default function HomePage() {
         {/* ── Category Marquee ────────────────────────────────────── */}
         <CategoryMarquee />
 
-        {/* ── Featured Projects ───────────────────────────────────── */}
-        <FeaturedProjects />
-
         {/* ── Discovery section ───────────────────────────────────── */}
         <section
           className="page-container"
@@ -114,6 +111,9 @@ export default function HomePage() {
             <IssueGrid activeTypes={activeTypes} search={search} />
           </div>
         </section>
+
+        {/* ── Featured Projects ───────────────────────────────────── */}
+        <FeaturedProjects />
 
         {/* ── Subscribe Section ───────────────────────────────────── */}
         <SubscribeSection />
