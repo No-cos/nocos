@@ -80,16 +80,20 @@ html.dark {
 }
 
 /* ─── Base Styles ───────────────────────────────────────────────────────────── */
-/* max-width: 100% on both html and body (not 100vw — vw includes scrollbar    */
-/* width and can cause a 1-17px horizontal overflow on desktop).                */
+/* overflow-x: clip (not hidden) — clip blocks horizontal overflow without       */
+/* creating a scroll container. overflow-x: hidden on html/body intercepts       */
+/* touch events on iOS Safari and is the primary cause of "sticky" mobile       */
+/* scroll. clip achieves the same visual result with no touch side-effects.      */
 html, body {
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 html {
   /* Smooth transition when switching between light and dark mode */
   transition: background 200ms ease;
+  /* Prevent over-scroll rubber-banding at document edges */
+  overscroll-behavior: none;
 }
 
 body {
@@ -97,6 +101,10 @@ body {
   color: var(--color-text-primary);
   font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Enable momentum (inertial) scrolling on iOS Safari */
+  -webkit-overflow-scrolling: touch;
+  /* Allow vertical over-scroll (bounce) but not horizontal */
+  overscroll-behavior-y: auto;
   -moz-osx-font-smoothing: grayscale;
 }
 
@@ -216,6 +224,9 @@ h1, h2, h3 {
   width: max-content;
   gap: 10px;
   align-items: center;
+  /* Promote to own compositor layer — marquee animates independently
+     of the scroll thread so it never blocks touch scroll */
+  will-change: transform;
 }
 .marquee-track--left {
   animation: marquee-left 28s linear infinite;
@@ -322,6 +333,25 @@ html.dark .navbar-scrolled {
   .footer-grid {
     grid-template-columns: 1fr;
     gap: 32px;
+  }
+}
+
+/* ─── Featured projects grid — 3 columns desktop, 1 mobile ─────────────────── */
+.featured-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 1024px) {
+  .featured-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 639px) {
+  .featured-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

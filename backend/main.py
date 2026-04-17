@@ -12,7 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from config import config
-from routers import admin, health, issues, projects, stats, subscribers, sync
+from routers import admin, featured, health, issues, projects, stats, subscribers, sync
 from services.sync import create_scheduler
 
 # Configure structured logging.
@@ -121,6 +121,7 @@ app.add_middleware(
 # ─── Routers ──────────────────────────────────────────────────────────────────
 # All routes are versioned under /api/v1 from day one.
 app.include_router(admin.router, prefix="/api/v1")
+app.include_router(featured.router, prefix="/api/v1")
 app.include_router(health.router, prefix="/api/v1")
 app.include_router(issues.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")

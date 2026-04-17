@@ -22,6 +22,7 @@ import { CategoryMarquee } from "@/components/marquee";
 import { FilterBar } from "@/components/filter-bar";
 import { SearchBar } from "@/components/search-bar";
 import { IssueGrid } from "@/components/issue-grid";
+import { FeaturedProjects } from "@/components/featured-projects";
 import { SubscribeSection } from "@/components/subscribe-section";
 import { Footer } from "@/components/footer";
 
@@ -51,6 +52,9 @@ export default function HomePage() {
 
         {/* ── Category Marquee ────────────────────────────────────── */}
         <CategoryMarquee />
+
+        {/* ── Featured Projects ───────────────────────────────────── */}
+        <FeaturedProjects />
 
         {/* ── Discovery section ───────────────────────────────────── */}
         <section

@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 TTL_PROJECT = 3600       # 1 hour
 TTL_ISSUE_LIST = 1800    # 30 minutes
 TTL_ISSUE_DETAIL = 1800  # 30 minutes
+TTL_FEATURED = 604800    # 7 days — featured projects refreshed weekly
 
 
 class AppCache:

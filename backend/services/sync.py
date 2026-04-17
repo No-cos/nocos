@@ -734,6 +734,93 @@ def _run_scheduled_gitlab_scrape(session_factory) -> None:
         logger.exception("Scheduled GitLab scrape failed")
 
 
+# ─── Weekly Featured Project Refresh ─────────────────────────────────────────
+
+def _run_weekly_featured_refresh(session_factory) -> None:
+    """
+    APScheduler wrapper for the Sunday 00:00 UTC featured project job.
+
+    Steps:
+      1. Call fetch_most_active_projects() and fetch_new_promising_projects()
+         from the service layer — these hit GitHub Search, rank results,
+         and cache them in Redis (TTL 7 days).
+      2. Write a fresh snapshot to the featured_projects DB table, tagged
+         with the current ISO week Monday as week_of.
+      3. Log a summary of what was stored.
+
+    Errors are caught and logged so a single failure doesn't kill the scheduler.
+    """
+    from datetime import date, timedelta
+    from services.featured_projects_service import (
+        fetch_most_active_projects,
+        fetch_new_promising_projects,
+    )
+    from models.featured_project import FeaturedProject
+
+    logger.info("Weekly featured project refresh started")
+
+    # Monday of the current ISO week — stable identifier for this snapshot
+    today = date.today()
+    week_of = today - timedelta(days=today.weekday())  # Monday = weekday 0
+
+    try:
+        most_active = fetch_most_active_projects()
+        new_promising = fetch_new_promising_projects()
+    except Exception:
+        logger.exception("Featured project fetch failed — refresh aborted")
+        return
+
+    if not most_active and not new_promising:
+        logger.warning("Featured project refresh returned no results — skipping DB write")
+        return
+
+    with session_factory() as session:
+        try:
+            # Delete existing rows for this week so re-running is idempotent
+            session.query(FeaturedProject).filter(
+                FeaturedProject.week_of == week_of
+            ).delete(synchronize_session=False)
+
+            # Insert fresh rows
+            rows: list[FeaturedProject] = []
+            for project_dict in most_active + new_promising:
+                rows.append(FeaturedProject(
+                    repo_full_name=project_dict["repo_full_name"],
+                    name=project_dict["name"],
+                    description=project_dict.get("description") or "",
+                    language=project_dict.get("language"),
+                    stars=project_dict.get("stars", 0),
+                    stars_gained_this_week=project_dict.get("stars_gained_this_week"),
+                    forks=project_dict.get("forks", 0),
+                    open_issues_count=project_dict.get("open_issues_count", 0),
+                    homepage=project_dict.get("homepage"),
+                    license=project_dict.get("license"),
+                    topics=project_dict.get("topics") or [],
+                    weekly_commits=project_dict.get("weekly_commits", 0),
+                    avatar_url=project_dict.get("avatar_url", ""),
+                    github_url=project_dict.get("github_url", ""),
+                    category=project_dict["category"],
+                    week_of=week_of,
+                ))
+
+            session.add_all(rows)
+            session.commit()
+
+            logger.info(
+                "Weekly featured project refresh complete",
+                extra={
+                    "week_of": str(week_of),
+                    "most_active": len(most_active),
+                    "new_promising": len(new_promising),
+                    "total_rows": len(rows),
+                },
+            )
+
+        except Exception:
+            session.rollback()
+            logger.exception("Featured project DB write failed — rolled back")
+
+
 # ─── Scheduler Setup ──────────────────────────────────────────────────────────
 
 def create_scheduler(session_factory) -> BackgroundScheduler:
@@ -785,12 +872,29 @@ def create_scheduler(session_factory) -> BackgroundScheduler:
         replace_existing=True,
     )
 
+    # Weekly featured project refresh — every Sunday at 00:00 UTC.
+    # Calls the service layer to query GitHub Search, ranks results,
+    # writes the snapshot to the featured_projects table, and invalidates
+    # the Redis cache so the next /api/v1/featured request serves fresh data.
+    scheduler.add_job(
+        func=_run_weekly_featured_refresh,
+        trigger="cron",
+        day_of_week="sun",
+        hour=0,
+        minute=0,
+        kwargs={"session_factory": session_factory},
+        id="weekly_featured_refresh",
+        name="Nocos weekly featured project refresh",
+        replace_existing=True,
+    )
+
     logger.info(
         "Sync scheduler configured",
         extra={
             "freshness_interval_hours": SYNC_INTERVAL_HOURS,
             "github_scrape_interval_hours": GITHUB_SCRAPE_INTERVAL_HOURS,
             "gitlab_scrape_interval_hours": GITLAB_SCRAPE_INTERVAL_HOURS,
+            "featured_refresh": "weekly (Sunday 00:00 UTC)",
         },
     )
     return scheduler
