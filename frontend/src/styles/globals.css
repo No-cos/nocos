@@ -198,14 +198,14 @@ h1, h2, h3 {
   justify-content: center;
   flex-wrap: wrap;
 }
-@media (max-width: 479px) {
+@media (max-width: 767px) {
   .hero-ctas {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
   }
-  .hero-ctas a {
+  .hero-ctas a,
+  .hero-ctas button {
     width: 100%;
-    max-width: 280px;
     justify-content: center;
   }
 }
