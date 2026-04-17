@@ -193,10 +193,22 @@ export function GlobeAnimation() {
 
     rafId = requestAnimationFrame(render);
 
+    // Pause the loop when the tab is hidden, resume when visible again.
+    // Prevents wasting CPU/battery on a background tab.
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        cancelAnimationFrame(rafId);
+      } else {
+        rafId = requestAnimationFrame(render);
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange, { passive: true });
+
     return () => {
       cancelAnimationFrame(rafId);
       clearTimeout(scrollTimer);
       window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (!isTouch) {
         window.removeEventListener("mousemove", handleMouseMove);
       }
