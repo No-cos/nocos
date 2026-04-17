@@ -59,6 +59,35 @@ export default function HomePage() {
           style={{ paddingTop: "100px", paddingBottom: "100px" }}
           aria-label="Issue discovery"
         >
+          {/* Section header — matches Featured Projects header style */}
+          <div style={{ marginBottom: "36px" }}>
+            <p
+              style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: "12px",
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "var(--color-cta-primary)",
+                margin: "0 0 8px",
+              }}
+            >
+              Featured Issues
+            </p>
+            <h2
+              style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontWeight: 800,
+                fontSize: "clamp(1.5rem, 3vw, 2rem)",
+                color: "var(--color-text-primary)",
+                margin: 0,
+                lineHeight: 1.2,
+              }}
+            >
+              Discover Non-code Issues
+            </h2>
+          </div>
+
           {/* Filter bar + search bar — side by side on desktop, stacked on mobile */}
           <div className="discovery-controls">
             <div style={{ flex: 1, minWidth: 0 }}>
