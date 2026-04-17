@@ -41,6 +41,11 @@
   --color-status-slow: #F59E0B;
   --color-status-inactive: #EF4444;
 
+  /* Bounty badge — amber tones for a money/reward feel */
+  --color-bounty-bg: #FFFBEB;
+  --color-bounty-border: #FDE68A;
+  --color-bounty-text: #92400E;
+
   /* Tag border colors — one per contribution type */
   --tag-design: #A78BFA;
   --tag-documentation: #60A5FA;
@@ -77,6 +82,11 @@ html.dark {
 
   /* Card shadow is heavier in dark mode for separation */
   --card-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+
+  /* Bounty badge — darker amber tones for dark mode readability */
+  --color-bounty-bg: #1C1400;
+  --color-bounty-border: #78530A;
+  --color-bounty-text: #FDE68A;
 }
 
 /* ─── Base Styles ───────────────────────────────────────────────────────────── */

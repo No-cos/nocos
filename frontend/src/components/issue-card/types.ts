@@ -8,6 +8,8 @@ export interface IssueCardIssue {
   contribution_type: string;
   labels: string[];
   is_paid: boolean;
+  is_bounty: boolean;
+  bounty_amount: number | null;
   difficulty?: string | null;
   github_issue_url: string;
   github_created_at?: string | null;

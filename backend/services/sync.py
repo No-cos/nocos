@@ -413,7 +413,9 @@ def _ingest_repo_issues(
             is_ai_generated=issue.get("is_ai_generated", False),
             labels=issue.get("labels", []),
             contribution_type=issue.get("contribution_type", "other"),
-            is_paid=False,
+            is_paid=issue.get("is_bounty", False),  # bounty issues are paid
+            is_bounty=issue.get("is_bounty", False),
+            bounty_amount=issue.get("bounty_amount"),
             difficulty=None,
             source="github_scrape",
             github_created_at=issue.get("github_created_at"),

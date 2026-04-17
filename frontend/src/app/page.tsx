@@ -31,6 +31,7 @@ export default function HomePage() {
   // IssueGrid all read from and write to the same values.
   const [activeTypes, setActiveTypes] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [bountyOnly, setBountyOnly] = useState(false);
 
   function handleTypesChange(types: string[]) {
     setActiveTypes(types);
@@ -95,13 +96,15 @@ export default function HomePage() {
               <FilterBar
                 activeTypes={activeTypes}
                 onChange={handleTypesChange}
+                bountyOnly={bountyOnly}
+                onBountyChange={setBountyOnly}
               />
             </div>
             <SearchBar value={search} onChange={setSearch} />
           </div>
 
           {/* Issue count / active filter summary — helps orientation */}
-          {(activeTypes.length > 0 || search) && (
+          {(activeTypes.length > 0 || search || bountyOnly) && (
             <p
               style={{
                 fontFamily: "'Inter', sans-serif",
@@ -110,6 +113,8 @@ export default function HomePage() {
                 margin: "12px 0 0",
               }}
             >
+              {bountyOnly && "💰 Bounties"}
+              {bountyOnly && (activeTypes.length > 0 || search) && " · "}
               {activeTypes.length > 0 &&
                 `Filtering by: ${activeTypes.join(", ")}`}
               {activeTypes.length > 0 && search && " · "}
@@ -118,6 +123,7 @@ export default function HomePage() {
                 onClick={() => {
                   setActiveTypes([]);
                   setSearch("");
+                  setBountyOnly(false);
                 }}
                 style={{
                   marginLeft: "12px",
@@ -136,9 +142,9 @@ export default function HomePage() {
             </p>
           )}
 
-          {/* Issue grid — wired to filter + search state */}
+          {/* Issue grid — wired to filter + search + bounty state */}
           <div style={{ marginTop: "28px" }}>
-            <IssueGrid activeTypes={activeTypes} search={search} />
+            <IssueGrid activeTypes={activeTypes} search={search} bountyOnly={bountyOnly} />
           </div>
         </section>
 

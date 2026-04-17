@@ -137,10 +137,11 @@ export function IssueCard({ issue, onClick, animationIndex }: IssueCardProps) {
           onClick();
         }
       }}
-      aria-label={`${issue.title} — ${formatContributionType(issue.contribution_type)}`}
+      aria-label={`${issue.title} — ${formatContributionType(issue.contribution_type)}${issue.is_bounty ? " — Bounty" : ""}`}
       style={{
+        position: "relative",  // Needed for absolute-positioned bounty badge
         backgroundColor: "var(--color-surface)",
-        border: "1px solid var(--color-border)",
+        border: `1px solid ${issue.is_bounty ? "var(--color-bounty-border)" : "var(--color-border)"}`,
         borderRadius: "12px",
         boxShadow: "var(--card-shadow)",
         padding: "20px",
@@ -175,6 +176,37 @@ export function IssueCard({ issue, onClick, animationIndex }: IssueCardProps) {
         e.currentTarget.style.outline = "none";
       }}
     >
+      {/* ── Bounty badge — absolute top-right corner ────────────────── */}
+      {issue.is_bounty && (
+        <div
+          aria-label={issue.bounty_amount ? `Bounty: $${Math.floor(issue.bounty_amount / 100)}` : "Bounty"}
+          style={{
+            position: "absolute",
+            top: "14px",
+            right: "14px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "3px",
+            padding: "3px 9px",
+            backgroundColor: "var(--color-bounty-bg)",
+            color: "var(--color-bounty-text)",
+            border: "1.5px solid var(--color-bounty-border)",
+            borderRadius: "999px",
+            fontFamily: "'Inter', sans-serif",
+            fontSize: "11px",
+            fontWeight: 700,
+            whiteSpace: "nowrap",
+            zIndex: 1,
+            pointerEvents: "none",  // Don't intercept card click
+          }}
+        >
+          💰{" "}
+          {issue.bounty_amount
+            ? `$${Math.floor(issue.bounty_amount / 100)}`
+            : "Bounty"}
+        </div>
+      )}
+
       {/* ── Project info row ─────────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0, marginBottom: "12px" }}>
         <div

@@ -59,6 +59,8 @@ def _build_issue_response(task: Task) -> dict:
         "labels": task.labels or [],
         "contribution_type": task.contribution_type,
         "is_paid": task.is_paid,
+        "is_bounty": task.is_bounty if task.is_bounty is not None else False,
+        "bounty_amount": task.bounty_amount,
         "difficulty": task.difficulty,
         "source": task.source,
         "github_issue_url": task.github_issue_url,
@@ -77,6 +79,7 @@ def list_issues(
     types: Optional[str] = Query(None, description="Comma-separated contribution types"),
     search: Optional[str] = Query(None, description="Search by project name, title, or type"),
     paid: Optional[bool] = Query(None, description="Filter by paid status"),
+    bounty: Optional[bool] = Query(None, description="Filter to only bounty issues (is_bounty=true)"),
     difficulty: Optional[str] = Query(None, description="Filter by difficulty: beginner|intermediate|advanced"),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -120,6 +123,10 @@ def list_issues(
     # Paid filter
     if paid is not None:
         query = query.filter(Task.is_paid == paid)
+
+    # Bounty filter — shows only issues with a real-money reward attached
+    if bounty is not None:
+        query = query.filter(Task.is_bounty == bounty)
 
     # Difficulty filter
     if difficulty:

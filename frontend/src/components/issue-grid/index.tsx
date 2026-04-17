@@ -28,9 +28,10 @@ const PAGE_SIZE = 12;
 interface IssueGridProps {
   activeTypes: string[];
   search: string;
+  bountyOnly?: boolean;
 }
 
-export function IssueGrid({ activeTypes, search }: IssueGridProps) {
+export function IssueGrid({ activeTypes, search, bountyOnly }: IssueGridProps) {
   const router = useRouter();
   const [page, setPage] = useState(1);
 
@@ -42,6 +43,7 @@ export function IssueGrid({ activeTypes, search }: IssueGridProps) {
     limit: PAGE_SIZE,
     types: activeTypes.length > 0 ? activeTypes.join(",") : undefined,
     search: search || undefined,
+    bounty: bountyOnly || undefined,
   });
 
   const totalPages = data ? Math.ceil(data.meta.total / PAGE_SIZE) : 0;

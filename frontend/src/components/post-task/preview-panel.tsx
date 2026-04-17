@@ -66,6 +66,8 @@ export function PreviewPanel({
     contribution_type: contributionType || "design",
     labels: [],
     is_paid: isPaid,
+    is_bounty: false,
+    bounty_amount: null,
     difficulty: difficulty,
     github_issue_url: "#",
     project: {

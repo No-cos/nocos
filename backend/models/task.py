@@ -94,6 +94,13 @@ class Task(Base):
     )
 
     is_paid = Column(Boolean, nullable=False, default=False)
+
+    # Bounty fields — set by the scraper when it detects a real-money reward.
+    # bounty_amount is stored in USD cents (integer) for precision.
+    # Both default to False/None so existing rows are unaffected.
+    is_bounty = Column(Boolean, nullable=False, default=False)
+    bounty_amount = Column(Integer, nullable=True)  # USD cents, e.g. 5000 = $50
+
     difficulty = Column(
         Enum("beginner", "intermediate", "advanced", name="difficulty_enum"),
         nullable=True,

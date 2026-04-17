@@ -45,6 +45,8 @@ export interface Issue {
   labels: string[];
   contribution_type: string;
   is_paid: boolean;
+  is_bounty: boolean;
+  bounty_amount: number | null;
   difficulty: "beginner" | "intermediate" | "advanced" | null;
   source: "github_scrape" | "manual_post";
   github_issue_url: string;
@@ -109,6 +111,7 @@ interface FetchIssuesOptions {
   type?: string;
   search?: string;
   paid?: boolean;
+  bounty?: boolean;
   difficulty?: string;
 }
 
@@ -126,9 +129,11 @@ export async function fetchIssues(
 
   if (options.page) params.set("page", String(options.page));
   if (options.limit) params.set("limit", String(options.limit));
+  if (options.types) params.set("types", options.types);
   if (options.type) params.set("type", options.type);
   if (options.search) params.set("search", options.search);
   if (options.paid !== undefined) params.set("paid", String(options.paid));
+  if (options.bounty !== undefined) params.set("bounty", String(options.bounty));
   if (options.difficulty) params.set("difficulty", options.difficulty);
 
   const query = params.toString();

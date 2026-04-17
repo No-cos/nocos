@@ -22,6 +22,7 @@ interface UseIssuesOptions {
   type?: string;
   search?: string;
   paid?: boolean;
+  bounty?: boolean;
   difficulty?: string;
 }
 
@@ -43,7 +44,7 @@ interface UseIssuesResult {
  * @returns Object with data, isLoading, and error
  */
 export function useIssues(options: UseIssuesOptions = {}): UseIssuesResult {
-  const { page = 1, limit = 12, types, type, search, paid, difficulty } = options;
+  const { page = 1, limit = 12, types, type, search, paid, bounty, difficulty } = options;
 
   const [data, setData] = useState<IssueListResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,7 +58,7 @@ export function useIssues(options: UseIssuesOptions = {}): UseIssuesResult {
       setError(null);
 
       try {
-        const result = await fetchIssues({ page, limit, types, type, search, paid, difficulty });
+        const result = await fetchIssues({ page, limit, types, type, search, paid, bounty, difficulty });
         if (!cancelled) {
           setData(result);
         }
@@ -90,7 +91,7 @@ export function useIssues(options: UseIssuesOptions = {}): UseIssuesResult {
     return () => {
       cancelled = true;
     };
-  }, [page, limit, types, type, search, paid, difficulty]);
+  }, [page, limit, types, type, search, paid, bounty, difficulty]);
 
   return { data, isLoading, error };
 }

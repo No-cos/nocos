@@ -18,12 +18,22 @@ import { Tag, ALL_CONTRIBUTION_TYPES } from "@/components/ui/tag";
 import { formatContributionType } from "@/lib/utils";
 import type { FilterBarProps } from "./types";
 
-export function FilterBar({ activeTypes, onChange }: FilterBarProps) {
-  const allSelected = activeTypes.length === 0;
+export function FilterBar({
+  activeTypes,
+  onChange,
+  bountyOnly = false,
+  onBountyChange,
+}: FilterBarProps) {
+  const allSelected = activeTypes.length === 0 && !bountyOnly;
 
   function handleAll() {
-    // "All" resets to empty array — the grid interprets [] as no filter
+    // "All" resets both type filters and the bounty toggle
     onChange([]);
+    onBountyChange?.(false);
+  }
+
+  function handleBounty() {
+    onBountyChange?.(!bountyOnly);
   }
 
   function handleType(type: string) {
@@ -79,6 +89,40 @@ export function FilterBar({ activeTypes, onChange }: FilterBarProps) {
         }}
       >
         All
+      </button>
+
+      {/* Bounties pill — independent toggle, not a contribution type */}
+      <button
+        type="button"
+        onClick={handleBounty}
+        aria-pressed={bountyOnly}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "4px",
+          padding: "5px 14px",
+          backgroundColor: bountyOnly
+            ? "var(--color-bounty-bg)"
+            : "var(--color-surface)",
+          color: bountyOnly
+            ? "var(--color-bounty-text)"
+            : "var(--color-text-primary)",
+          border: `1.5px solid ${
+            bountyOnly
+              ? "var(--color-bounty-border)"
+              : "var(--color-border)"
+          }`,
+          borderRadius: "999px",
+          fontFamily: "'Inter', sans-serif",
+          fontWeight: 600,
+          fontSize: "13px",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          flexShrink: 0,
+          transition: "background 150ms ease, color 150ms ease, border-color 150ms ease",
+        }}
+      >
+        💰 Bounties
       </button>
 
       {/* One pill per contribution type */}

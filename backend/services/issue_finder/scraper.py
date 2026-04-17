@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from services.github_client import github_client, RateLimitLowError
+from services.issue_finder.bounty_detector import detect_bounty
 
 logger = logging.getLogger(__name__)
 
@@ -431,7 +432,7 @@ def scrape_issues_for_label(
             except ValueError:
                 pass
 
-        structured.append({
+        issue_dict: dict = {
             "github_issue_id": issue["id"],
             "github_issue_number": issue["number"],
             "title": issue.get("title", ""),
@@ -444,7 +445,14 @@ def scrape_issues_for_label(
             "comments_url": issue.get("comments_url", ""),
             "github_owner": owner,
             "github_repo": repo_name,
-        })
+        }
+
+        # Detect real-money bounty — adds is_bounty + bounty_amount fields
+        is_bounty, bounty_amount = detect_bounty(issue_dict)
+        issue_dict["is_bounty"] = is_bounty
+        issue_dict["bounty_amount"] = bounty_amount
+
+        structured.append(issue_dict)
 
     return structured
 
