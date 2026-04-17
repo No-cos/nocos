@@ -305,42 +305,9 @@ function ProjectCard({ project }: { project: FeaturedProject }) {
         </div>
       )}
 
-      {/* ── Action buttons — pinned to card bottom via marginTop: auto ── */}
-      <div
-        style={{
-          display: "flex",
-          gap: "8px",
-          marginTop: "auto",
-          paddingTop: "4px",
-        }}
-      >
-        {/* Browse Issues — primary filled */}
-        <a
-          href={browseUrl}
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: "'Inter', sans-serif",
-            fontSize: "13px",
-            fontWeight: 600,
-            color: "#fff",
-            backgroundColor: "var(--color-cta-primary)",
-            border: "1.5px solid var(--color-cta-primary)",
-            borderRadius: "8px",
-            padding: "7px 12px",
-            textDecoration: "none",
-            transition: "opacity 120ms ease",
-            whiteSpace: "nowrap",
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.opacity = "0.88"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.opacity = "1"; }}
-        >
-          Browse Issues
-        </a>
-
-        {/* GitHub — ghost outlined */}
+      {/* ── Action button — pinned to card bottom via marginTop: auto ── */}
+      <div style={{ marginTop: "auto", paddingTop: "4px" }}>
+        {/* GitHub — full width */}
         <a
           href={project.github_url}
           target="_blank"
@@ -349,6 +316,7 @@ function ProjectCard({ project }: { project: FeaturedProject }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            width: "100%",
             fontFamily: "'Inter', sans-serif",
             fontSize: "13px",
             fontWeight: 500,
@@ -359,7 +327,7 @@ function ProjectCard({ project }: { project: FeaturedProject }) {
             padding: "7px 12px",
             textDecoration: "none",
             transition: "border-color 120ms ease",
-            whiteSpace: "nowrap",
+            boxSizing: "border-box",
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--color-text-secondary)";

@@ -55,6 +55,7 @@ export default function HomePage() {
 
         {/* ── Discovery section ───────────────────────────────────── */}
         <section
+          id="issues-section"
           className="page-container"
           style={{ paddingTop: "100px", paddingBottom: "100px" }}
           aria-label="Issue discovery"

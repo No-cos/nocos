@@ -18,6 +18,7 @@
 
 import Link from "next/link";
 import { GlobeAnimation } from "@/components/globe";
+import type { CSSProperties } from "react";
 
 export function Hero() {
   return (
@@ -114,8 +115,12 @@ export function Hero() {
 
         {/* CTA buttons */}
         <div className="hero-ctas">
-          <Link
-            href="/"
+          <button
+            onClick={() =>
+              document
+                .getElementById("issues-section")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -126,11 +131,11 @@ export function Hero() {
               fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
               fontSize: "0.9375rem",
-              textDecoration: "none",
               borderRadius: "10px",
               transition: "opacity 150ms ease",
               border: "none",
-            }}
+              cursor: "pointer",
+            } as CSSProperties}
             onMouseEnter={(e) =>
               ((e.currentTarget as HTMLElement).style.opacity = "0.88")
             }
@@ -139,7 +144,7 @@ export function Hero() {
             }
           >
             Find Tasks →
-          </Link>
+          </button>
 
           <Link
             href="/post"
