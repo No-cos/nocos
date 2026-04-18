@@ -153,7 +153,7 @@ export function Hero() {
               alignItems: "center",
               padding: "13px 28px",
               backgroundColor: "var(--color-text-primary)",
-              color: "#ffffff",
+              color: "var(--color-bg)",
               fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
               fontSize: "0.9375rem",
