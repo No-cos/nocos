@@ -468,7 +468,7 @@ export function FeaturedProjects() {
               lineHeight: 1.2,
             }}
           >
-            Discover open source
+            Discover open source projects
           </h2>
         </div>
 
