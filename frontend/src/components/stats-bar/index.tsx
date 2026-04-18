@@ -108,8 +108,8 @@ export function StatsBar() {
   const [stats, setStats] = useState<{
     open_tasks: number | null;
     projects: number | null;
-    contribution_types: number | null;
-  }>({ open_tasks: null, projects: null, contribution_types: null });
+    repositories: number | null;
+  }>({ open_tasks: null, projects: null, repositories: null });
 
   useEffect(() => {
     fetchStats()
@@ -117,7 +117,7 @@ export function StatsBar() {
         setStats({
           open_tasks: data.open_tasks,
           projects: data.projects,
-          contribution_types: data.contribution_types,
+          repositories: data.repositories,
         })
       )
       .catch(() => {
@@ -128,7 +128,7 @@ export function StatsBar() {
   const items: StatItem[] = [
     { value: stats.open_tasks, suffix: "+", label: "Open Tasks" },
     { value: stats.projects, suffix: "+", label: "Active Projects" },
-    { value: stats.contribution_types, suffix: "", label: "Contribution Types" },
+    { value: stats.repositories, suffix: "+", label: "Repositories" },
   ];
 
   return (

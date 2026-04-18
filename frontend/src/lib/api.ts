@@ -260,7 +260,7 @@ export async function fetchPrograms(
 export interface Stats {
   open_tasks: number;
   projects: number;
-  contribution_types: number;
+  repositories: number;
 }
 
 /**

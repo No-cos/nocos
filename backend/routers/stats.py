@@ -1,6 +1,6 @@
 # routers/stats.py
 # Platform statistics endpoint — returns live counts for open tasks,
-# active projects, and distinct contribution types.
+# active projects, and distinct repositories with open issues.
 # Cached in Redis for 5 minutes so the DB isn't queried on every page load.
 
 import logging
@@ -29,7 +29,7 @@ def get_stats(db: Session = Depends(get_db)) -> dict:
     Counts are computed from live DB state and cached for 5 minutes.
 
     Returns:
-        { open_tasks: int, projects: int, contribution_types: int }
+        { open_tasks: int, projects: int, repositories: int }
     """
     cache_key = "stats:platform"
     cached = app_cache.get(cache_key)
@@ -48,8 +48,8 @@ def get_stats(db: Session = Depends(get_db)) -> dict:
         .scalar() or 0
     )
 
-    contribution_types = (
-        db.query(func.count(func.distinct(Task.contribution_type)))
+    repositories = (
+        db.query(func.count(func.distinct(Task.project_id)))
         .filter(Task.is_active == True)
         .scalar() or 0
     )
@@ -57,7 +57,7 @@ def get_stats(db: Session = Depends(get_db)) -> dict:
     result = {
         "open_tasks": open_tasks,
         "projects": projects,
-        "contribution_types": contribution_types,
+        "repositories": repositories,
     }
 
     app_cache.set(cache_key, result, TTL_STATS)
