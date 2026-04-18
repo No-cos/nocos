@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 SYNC_INTERVAL_HOURS = 6           # freshness (close/stale/archive checks)
 GITHUB_SCRAPE_INTERVAL_HOURS = 1  # new issues on already-tracked repos
 GITLAB_SCRAPE_INTERVAL_HOURS = 2  # new GitLab issue discovery
-DISCOVERY_INTERVAL_HOURS = 12     # search GitHub for brand-new repos to track
+DISCOVERY_INTERVAL_HOURS = 6      # search GitHub for brand-new repos to track
 
 
 # ─── Activity Score & Status ───────────────────────────────────────────────────
@@ -955,6 +955,34 @@ def _run_weekly_featured_refresh(session_factory) -> None:
             logger.exception("Featured project DB write failed — rolled back")
 
 
+# ─── One-time Startup Scrape ──────────────────────────────────────────────────
+
+def _run_startup_scrape(session_factory) -> None:
+    """
+    One-time job fired 30 seconds after startup.
+
+    Runs discovery (find new repos) followed by a full GitHub scrape
+    (fetch issues from all tracked repos) so the DB is populated
+    immediately after a fresh deploy without waiting for the first
+    scheduled interval to fire.
+
+    Errors in either step are logged but never propagate — a startup
+    scrape failure must never crash the application.
+    """
+    logger.info("Startup scrape: beginning one-time discovery + scrape")
+    try:
+        run_discovery(session_factory)
+        logger.info("Startup scrape: discovery complete")
+    except Exception:
+        logger.exception("Startup scrape: discovery failed")
+
+    try:
+        _run_scheduled_github_scrape(session_factory)
+        logger.info("Startup scrape: GitHub scrape complete")
+    except Exception:
+        logger.exception("Startup scrape: GitHub scrape failed")
+
+
 # ─── Scheduler Setup ──────────────────────────────────────────────────────────
 
 def create_scheduler(session_factory) -> BackgroundScheduler:
@@ -1015,7 +1043,7 @@ def create_scheduler(session_factory) -> BackgroundScheduler:
         hours=DISCOVERY_INTERVAL_HOURS,
         kwargs={"session_factory": session_factory},
         id="repo_discovery",
-        name="Nocos 12-hour repo discovery",
+        name="Nocos 6-hour repo discovery",
         replace_existing=True,
     )
 
@@ -1035,6 +1063,23 @@ def create_scheduler(session_factory) -> BackgroundScheduler:
         replace_existing=True,
     )
 
+    # One-time startup scrape — fires 30 seconds after this scheduler starts.
+    # Runs discovery + full GitHub scrape so the DB is populated immediately
+    # on a fresh deploy without waiting for the first scheduled interval.
+    # Because APScheduler recreates jobs fresh on each process start, this
+    # fires exactly once per deploy and never again.
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    startup_run_at = _dt.now(tz=_tz.utc) + _td(seconds=30)
+    scheduler.add_job(
+        func=_run_startup_scrape,
+        trigger="date",
+        run_date=startup_run_at,
+        kwargs={"session_factory": session_factory},
+        id="startup_scrape",
+        name="Nocos one-time startup discovery + scrape",
+        replace_existing=True,
+    )
+
     logger.info(
         "Sync scheduler configured",
         extra={
@@ -1043,6 +1088,7 @@ def create_scheduler(session_factory) -> BackgroundScheduler:
             "gitlab_scrape_interval_hours": GITLAB_SCRAPE_INTERVAL_HOURS,
             "discovery_interval_hours": DISCOVERY_INTERVAL_HOURS,
             "featured_refresh": "weekly (Sunday 00:00 UTC)",
+            "startup_scrape_at": startup_run_at.isoformat(),
         },
     )
     return scheduler

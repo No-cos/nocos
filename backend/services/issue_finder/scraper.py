@@ -523,7 +523,7 @@ def scrape_repo(owner: str, repo_name: str) -> tuple[Optional[dict], list[dict]]
     return project_data, all_issues
 
 
-def discover_repos_via_search(max_repos_per_query: int = 15) -> list[tuple[str, str]]:
+def discover_repos_via_search(max_repos_per_query: int = 30) -> list[tuple[str, str]]:
     """
     Discover new repos to scrape by running REPO_DISCOVERY_QUERIES via the
     GitHub Search API.

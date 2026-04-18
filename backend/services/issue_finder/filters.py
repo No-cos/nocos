@@ -20,7 +20,7 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Issues older than this are considered stale and should not be imported.
-MAX_ISSUE_AGE_DAYS = 28
+MAX_ISSUE_AGE_DAYS = 365
 
 # Labels that indicate purely code-specific work.
 # An issue whose EVERY label is in this set has no non-code contribution angle.
@@ -366,7 +366,7 @@ def should_include_issue(issue: dict) -> bool:
     # Filter 2: too old
     if is_too_old(created_at):
         logger.debug(
-            "Filtered — older than 14 days",
+            f"Filtered — older than {MAX_ISSUE_AGE_DAYS} days",
             extra={"issue_id": issue.get("github_issue_id"), "created_at": str(created_at)},
         )
         return False

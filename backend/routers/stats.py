@@ -48,9 +48,10 @@ def get_stats(db: Session = Depends(get_db)) -> dict:
         .scalar() or 0
     )
 
+    # Count every project ever discovered and scraped — not just those with
+    # currently active tasks. This is the true measure of platform reach.
     repositories = (
-        db.query(func.count(func.distinct(Task.project_id)))
-        .filter(Task.is_active == True)
+        db.query(func.count(Project.id))
         .scalar() or 0
     )
 
