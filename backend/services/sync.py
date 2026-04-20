@@ -764,66 +764,82 @@ def run_discovery(session_factory) -> dict:
     """
     Discover new repos via GitHub Search and ingest their non-code issues.
 
-    Runs REPO_DISCOVERY_QUERIES, extracts (owner, repo) pairs from the results,
-    filters out repos already tracked in the DB, then scrapes and ingests each
-    new repo using the same pipeline as run_scrape().
+    Two sources of repos to scrape every cycle:
+      1. Label-based GitHub Search (REPO_DISCOVERY_QUERIES) — surfaces mid-tier
+         projects that label their issues consistently.
+      2. Curated SEED_REPOS list — well-known projects guaranteed to have non-code
+         work but that may not label issues with the standard vocabulary.  Seed
+         repos are checked on *every* discovery cycle (not just when new) so fresh
+         issues are captured promptly.  Once a seed repo is in the database its
+         issues also appear in the hourly run_scrape() pass.
 
-    Called by the 12-hour discovery scheduler job and the manual trigger endpoint.
+    Called by the 6-hour discovery scheduler job and the manual trigger endpoint.
 
     Args:
         session_factory: SQLAlchemy sessionmaker
 
     Returns:
         Dict: { repos_discovered, new_repos_added, new_tasks_added,
-                descriptions_backfilled, duration_seconds }
+                descriptions_backfilled, seed_repos_scraped, duration_seconds }
     """
     from services.issue_finder.scraper import discover_repos_via_search, scrape_repo
+    from services.issue_finder.seed_repos import SEED_REPOS
 
     logger.info("Repo discovery started")
     start_time = datetime.now(tz=timezone.utc)
 
-    # Snapshot existing projects so we only scrape genuinely new repos
+    # Snapshot existing projects so we can distinguish new from known repos
     with session_factory() as session:
         existing_pairs = {
             (p.github_owner, p.github_repo)
             for p in session.query(Project).all()
         }
 
-    # Run all discovery queries
+    # ── Part 1: label-based GitHub Search ────────────────────────────────────
     try:
         all_discovered = discover_repos_via_search()
     except Exception:
         logger.exception("discover_repos_via_search failed — aborting discovery run")
-        return {
-            "repos_discovered": 0,
-            "new_repos_added": 0,
-            "new_tasks_added": 0,
-            "descriptions_backfilled": 0,
-            "duration_seconds": round(
-                (datetime.now(tz=timezone.utc) - start_time).total_seconds(), 2
-            ),
-        }
+        all_discovered = []
 
-    new_pairs = [p for p in all_discovered if p not in existing_pairs]
+    # Only scrape search-discovered repos that are not yet in the DB.
+    # Existing tracked repos are already refreshed by the hourly run_scrape().
+    search_new_pairs = [p for p in all_discovered if p not in existing_pairs]
 
     logger.info(
-        "Discovery: repos found",
+        "Discovery: search results",
         extra={
             "total_discovered": len(all_discovered),
-            "already_tracked": len(all_discovered) - len(new_pairs),
-            "new_to_scrape": len(new_pairs),
+            "already_tracked": len(all_discovered) - len(search_new_pairs),
+            "new_to_scrape": len(search_new_pairs),
+        },
+    )
+
+    # ── Part 2: curated seed repos ────────────────────────────────────────────
+    # Seed repos are scraped on every cycle regardless of DB state.
+    # This guarantees fresh non-code issues from well-known projects are
+    # captured even if no label-based search query surfaces them.
+    seed_pairs = list(SEED_REPOS)
+    logger.info(
+        "Discovery: seed repos",
+        extra={
+            "total_seeds": len(seed_pairs),
+            "seeds_already_tracked": sum(1 for p in seed_pairs if p in existing_pairs),
+            "seeds_new_to_db": sum(1 for p in seed_pairs if p not in existing_pairs),
         },
     )
 
     new_repos_added = 0
     total_new_tasks = 0
+    seed_repos_scraped = 0
 
-    if new_pairs:
+    # ── Scrape: search-discovered new repos ───────────────────────────────────
+    if search_new_pairs:
         with session_factory() as session:
             try:
-                for owner, repo_name in new_pairs:
+                for owner, repo_name in search_new_pairs:
                     logger.info(
-                        "Discovery: scraping new repo",
+                        "Discovery: scraping search-discovered repo",
                         extra={"owner": owner, "repo": repo_name},
                     )
                     try:
@@ -854,7 +870,47 @@ def run_discovery(session_factory) -> dict:
 
             except Exception:
                 session.rollback()
-                logger.exception("Discovery ingest failed — rolled back")
+                logger.exception("Discovery ingest (search repos) failed — rolled back")
+
+    # ── Scrape: seed repos (all, every cycle) ─────────────────────────────────
+    with session_factory() as session:
+        try:
+            for owner, repo_name in seed_pairs:
+                logger.info(
+                    "Discovery: scraping seed repo",
+                    extra={"owner": owner, "repo": repo_name},
+                )
+                try:
+                    project_data, raw_issues = scrape_repo(owner, repo_name)
+                    if project_data is None:
+                        # Silently skipped — failed license check or private/archived
+                        continue
+
+                    is_new, new_tasks = _ingest_repo_issues(
+                        project_data, raw_issues, session
+                    )
+                    if is_new:
+                        new_repos_added += 1
+                    total_new_tasks += new_tasks
+                    seed_repos_scraped += 1
+
+                except RateLimitLowError:
+                    logger.warning(
+                        "Rate limit hit during seed scrape — stopping early",
+                        extra={"owner": owner, "repo": repo_name},
+                    )
+                    break
+                except Exception as e:
+                    logger.error(
+                        "Seed repo scrape failed — skipping",
+                        extra={"owner": owner, "repo": repo_name, "error": str(e)},
+                    )
+
+            session.commit()
+
+        except Exception:
+            session.rollback()
+            logger.exception("Discovery ingest (seed repos) failed — rolled back")
 
     # Backfill AI descriptions for any newly ingested tasks that didn't get one
     try:
@@ -870,6 +926,7 @@ def run_discovery(session_factory) -> dict:
         "new_repos_added": new_repos_added,
         "new_tasks_added": total_new_tasks,
         "descriptions_backfilled": descriptions_backfilled,
+        "seed_repos_scraped": seed_repos_scraped,
         "duration_seconds": round(duration, 2),
     }
     logger.info("Repo discovery complete", extra=stats)
@@ -1013,21 +1070,91 @@ def _run_startup_scrape(session_factory) -> None:
     """
     One-time job fired 30 seconds after startup.
 
-    Runs discovery (find new repos) followed by a full GitHub scrape
-    (fetch issues from all tracked repos) so the DB is populated
-    immediately after a fresh deploy without waiting for the first
-    scheduled interval to fire.
+    Scrapes all SEED_REPOS that are not yet in the database so the platform
+    has content immediately after a fresh deploy — without waiting for the
+    first scheduled discovery cycle.  Uses the DB itself as the "done" flag:
+    seed repos already in the database are skipped here (they are refreshed
+    by the regular hourly run_scrape and 6-hour run_discovery jobs).
 
-    Errors in either step are logged but never propagate — a startup
-    scrape failure must never crash the application.
+    After the seed pass, runs a full discovery + GitHub scrape so any repos
+    surfaced by label-search queries are also ingested on first boot.
+
+    Errors in every step are caught and logged — a startup scrape failure
+    must never crash the application.
     """
-    logger.info("Startup scrape: beginning one-time discovery + scrape")
+    from services.issue_finder.scraper import scrape_repo
+    from services.issue_finder.seed_repos import SEED_REPOS
+
+    logger.info("Startup scrape: beginning seed repo population")
+
+    # ── Step 1: scrape seed repos missing from the database ──────────────────
+    # The DB itself serves as the "already done" flag — repos that were
+    # ingested on a previous deploy are skipped, so subsequent restarts are
+    # cheap (just a DB read per seed + no GitHub calls for known repos).
+    try:
+        with session_factory() as session:
+            existing_pairs = {
+                (p.github_owner, p.github_repo)
+                for p in session.query(Project).all()
+            }
+
+        missing_seeds = [
+            (owner, repo)
+            for owner, repo in SEED_REPOS
+            if (owner, repo) not in existing_pairs
+        ]
+
+        logger.info(
+            "Startup scrape: seed repos",
+            extra={
+                "total_seeds": len(SEED_REPOS),
+                "already_in_db": len(SEED_REPOS) - len(missing_seeds),
+                "to_scrape_now": len(missing_seeds),
+            },
+        )
+
+        if missing_seeds:
+            with session_factory() as session:
+                try:
+                    for owner, repo_name in missing_seeds:
+                        logger.info(
+                            "Startup scrape: seeding repo",
+                            extra={"owner": owner, "repo": repo_name},
+                        )
+                        try:
+                            project_data, raw_issues = scrape_repo(owner, repo_name)
+                            if project_data is None:
+                                continue  # Failed license check / private / archived
+                            _ingest_repo_issues(project_data, raw_issues, session)
+                        except RateLimitLowError:
+                            logger.warning(
+                                "Rate limit hit during startup seed scrape — stopping early",
+                                extra={"owner": owner, "repo": repo_name},
+                            )
+                            break
+                        except Exception as e:
+                            logger.error(
+                                "Startup seed scrape failed for repo — skipping",
+                                extra={"owner": owner, "repo": repo_name, "error": str(e)},
+                            )
+                    session.commit()
+                except Exception:
+                    session.rollback()
+                    logger.exception("Startup seed scrape ingest failed — rolled back")
+
+        logger.info("Startup scrape: seed pass complete")
+
+    except Exception:
+        logger.exception("Startup scrape: seed pass failed")
+
+    # ── Step 2: run label-search discovery for additional repos ──────────────
     try:
         run_discovery(session_factory)
         logger.info("Startup scrape: discovery complete")
     except Exception:
         logger.exception("Startup scrape: discovery failed")
 
+    # ── Step 3: scrape all tracked repos for fresh issues ─────────────────────
     try:
         _run_scheduled_github_scrape(session_factory)
         logger.info("Startup scrape: GitHub scrape complete")
