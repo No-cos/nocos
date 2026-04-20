@@ -56,40 +56,62 @@ _PUSHED_AFTER: str = f"{_dt.date.today().year - 2}-01-01"
 #   is:public     — public repos only (implicit for unauthenticated, but explicit is safer)
 REPO_DISCOVERY_QUERIES: list[str] = [
     # ── Documentation ─────────────────────────────────────────────────────────
-    # Mid-tier (50–500 stars) — active communities that are often overlooked
-    f"label:documentation is:open is:issue archived:false stars:50..500 pushed:>{_PUSHED_AFTER}",
-    # Larger repos — higher signal-to-noise, worth checking for non-code asks
+    # Small-to-mid tier (20–500 stars) — active smaller communities often overlooked
+    f"label:documentation is:open is:issue archived:false stars:20..500 pushed:>{_PUSHED_AFTER}",
+    # Mid-to-large repos — higher signal-to-noise, worth checking for non-code asks
     f"label:documentation is:open is:issue archived:false stars:500..5000 pushed:>{_PUSHED_AFTER}",
+    # Large well-known repos — likely to have open doc/writing issues
+    "label:documentation is:open is:issue archived:false stars:5000..50000",
     # Docs with help-wanted — maintainer explicitly wants contributors
-    f'label:documentation label:"help wanted" is:open is:issue archived:false stars:50..2000',
+    f'label:documentation label:"help wanted" is:open is:issue archived:false stars:20..2000',
     # ── Design ────────────────────────────────────────────────────────────────
-    f"label:design is:open is:issue archived:false stars:50..1000 pushed:>{_PUSHED_AFTER}",
-    f"label:ux is:open is:issue archived:false stars:50..2000",
-    f"label:accessibility is:open is:issue archived:false stars:50..2000 pushed:>{_PUSHED_AFTER}",
+    f"label:design is:open is:issue archived:false stars:20..1000 pushed:>{_PUSHED_AFTER}",
+    # Large design-active repos
+    "label:design is:open is:issue archived:false stars:1000..10000",
+    f"label:ux is:open is:issue archived:false stars:20..2000",
+    f"label:accessibility is:open is:issue archived:false stars:20..2000 pushed:>{_PUSHED_AFTER}",
     # ── Translation / i18n ────────────────────────────────────────────────────
-    f"label:translation is:open is:issue archived:false stars:50..3000",
-    f"label:i18n is:open is:issue archived:false stars:50..3000",
-    f"label:localization is:open is:issue archived:false stars:50..3000",
+    f"label:translation is:open is:issue archived:false stars:20..3000",
+    # Large repos with active translation communities
+    "label:translation is:open is:issue archived:false stars:500..10000",
+    f"label:i18n is:open is:issue archived:false stars:20..3000",
+    f"label:localization is:open is:issue archived:false stars:20..3000",
     # ── Community / Outreach ──────────────────────────────────────────────────
-    f"label:community is:open is:issue archived:false stars:50..2000 pushed:>{_PUSHED_AFTER}",
-    f"label:outreach is:open is:issue archived:false stars:50..1000",
+    f"label:community is:open is:issue archived:false stars:20..2000 pushed:>{_PUSHED_AFTER}",
+    f"label:outreach is:open is:issue archived:false stars:20..1000",
     # ── Language-specific documentation ───────────────────────────────────────
     # Targeting language communities separately surfaces repos that use their
     # ecosystem's dominant language and may have different labelling conventions.
-    f"label:documentation language:python is:open is:issue archived:false stars:100..1000 pushed:>{_PUSHED_AFTER}",
-    f"label:documentation language:javascript is:open is:issue archived:false stars:100..1000 pushed:>{_PUSHED_AFTER}",
-    f"label:documentation language:typescript is:open is:issue archived:false stars:100..1000 pushed:>{_PUSHED_AFTER}",
-    f"label:documentation language:rust is:open is:issue archived:false stars:100..2000 pushed:>{_PUSHED_AFTER}",
-    f"label:documentation language:go is:open is:issue archived:false stars:100..2000 pushed:>{_PUSHED_AFTER}",
-    f"label:documentation language:java is:open is:issue archived:false stars:100..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:python is:open is:issue archived:false stars:20..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:javascript is:open is:issue archived:false stars:20..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:typescript is:open is:issue archived:false stars:20..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:rust is:open is:issue archived:false stars:20..2000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:go is:open is:issue archived:false stars:20..2000 pushed:>{_PUSHED_AFTER}",
+    # ── Ruby / PHP / Java / mobile ecosystems (previously underrepresented) ───
+    f"label:documentation language:java is:open is:issue archived:false stars:20..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:ruby is:open is:issue archived:false stars:20..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:php is:open is:issue archived:false stars:20..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:swift is:open is:issue archived:false stars:20..500 pushed:>{_PUSHED_AFTER}",
+    f"label:documentation language:kotlin is:open is:issue archived:false stars:20..500 pushed:>{_PUSHED_AFTER}",
     # ── Design by language ────────────────────────────────────────────────────
-    f"label:design language:python is:open is:issue archived:false stars:50..1000 pushed:>{_PUSHED_AFTER}",
-    f"label:design language:javascript is:open is:issue archived:false stars:50..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:design language:python is:open is:issue archived:false stars:20..1000 pushed:>{_PUSHED_AFTER}",
+    f"label:design language:javascript is:open is:issue archived:false stars:20..1000 pushed:>{_PUSHED_AFTER}",
+    # ── Additional non-code label variants ────────────────────────────────────
+    # Many projects use "content" and "writing" instead of "documentation"
+    f"label:content is:open is:issue archived:false stars:20..2000",
+    f"label:writing is:open is:issue archived:false stars:20..2000",
+    # UX and accessibility under alternate labels
+    f"label:ux is:open is:issue archived:false stars:20..2000",
+    f"label:a11y is:open is:issue archived:false stars:20..2000",
+    # Feedback-seeking issues are often non-code (design review, copy review)
+    f'label:"needs feedback" is:open is:issue archived:false stars:20..1000',
+    # Translation + help-wanted combo — maintainer explicitly needs translators
+    f'label:"help wanted" label:translation is:open is:issue archived:false stars:20..5000',
     # ── Catch-alls paired with explicit non-code labels ────────────────────────
-    f'label:"good first issue" label:documentation is:open is:issue archived:false stars:50..1000',
-    f'label:"good first issue" label:design is:open is:issue archived:false stars:50..1000',
-    f'label:"help wanted" label:documentation is:open is:issue archived:false stars:50..500',
-    f'label:"help wanted" label:design is:open is:issue archived:false stars:50..500',
+    f'label:"good first issue" label:documentation is:open is:issue archived:false stars:20..1000',
+    f'label:"good first issue" label:design is:open is:issue archived:false stars:20..1000',
+    f'label:"help wanted" label:documentation is:open is:issue archived:false stars:20..500',
+    f'label:"help wanted" label:design is:open is:issue archived:false stars:20..500',
 ]
 
 # All labels we actively search for on GitHub.
