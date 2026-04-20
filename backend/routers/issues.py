@@ -146,10 +146,12 @@ def list_issues(
     # Total count before pagination (for the meta block)
     total = query.count()
 
-    # Apply pagination and sort by most recent
+    # Sort by GitHub issue creation date (newest first), with nulls last so
+    # manually posted tasks (github_created_at IS NULL) don't surface above
+    # real issues. Pagination is applied after ORDER BY for consistent pages.
     tasks = (
         query
-        .order_by(Task.created_at.desc())
+        .order_by(Task.github_created_at.desc().nullslast())
         .offset((page - 1) * limit)
         .limit(limit)
         .all()
