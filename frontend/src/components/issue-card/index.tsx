@@ -116,7 +116,8 @@ export function IssueCard({ issue, onClick, animationIndex }: IssueCardProps) {
 
   // Strip markdown before rendering — raw syntax (###, **, -) must never show
   const cleanDescription = stripMarkdown(issue.description_display);
-  const title = cleanTitle(issue.title);
+  // Prefer the AI-rewritten title; fall back to the original GitHub title.
+  const title = cleanTitle(issue.ai_title || issue.title);
 
   // Stagger delay: 50ms per card, capped at 300ms (index 5)
   const staggerDelay =

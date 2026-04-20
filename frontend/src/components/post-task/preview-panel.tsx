@@ -61,6 +61,7 @@ export function PreviewPanel({
   const previewIssue: IssueCardIssue = {
     id: "preview",
     title: title.trim() || PLACEHOLDER_TITLE,
+    ai_title: null,
     description_display: description.trim() || PLACEHOLDER_DESC,
     is_ai_generated: false,
     contribution_type: contributionType || "design",

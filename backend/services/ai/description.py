@@ -1,14 +1,16 @@
 # services/ai/description.py
-# Anthropic client for generating plain-English issue descriptions.
-# Called when a GitHub issue has no body, or a body shorter than 20 words
-# after stripping markdown — as defined in features.md Section 5.
+# Anthropic client for AI enrichment of GitHub issues.
+# Produces two outputs per issue in a single API call:
+#   - ai_title:           plain, action-oriented rewrite of the GitHub title
+#   - description_display: 2-3 sentence contributor-facing description
 #
-# Cost control measures (features.md Section 5):
-#   - Generation happens once per issue (on first import)
+# Cost control measures:
+#   - One Claude call per issue covers both title and description
+#   - Generation happens once on first import
 #   - Regenerated only if the original issue body changes on GitHub
-#   - Output capped at 60 words via the prompt
-#   - Failed generation returns a safe fallback — never blocks the sync job
+#   - Output capped by max_tokens — never blocks the sync job on failure
 
+import json
 import logging
 import re
 from typing import Optional
@@ -20,28 +22,44 @@ from services.retry import retry_call
 
 logger = logging.getLogger(__name__)
 
-# The model to use for description generation.
+# The model to use for enrichment.
 # claude-sonnet-4-5 balances quality and cost for short-form generation.
 CLAUDE_MODEL = "claude-sonnet-4-5"
 
 # Minimum word count for an existing description to be considered usable.
-# Below this threshold, we generate a replacement with Claude.
+# Below this threshold we generate a replacement with Claude.
 MIN_DESCRIPTION_WORDS = 20
 
-# Fallback string shown when generation fails — never a blank card.
+# Fallback strings shown when generation fails — never a blank card.
 FALLBACK_DESCRIPTION = "Visit GitHub for full details on this task."
+FALLBACK_TITLE = None  # None means the original GitHub title is used as-is
 
-# Prompt template — fills in repo, issue, labels, and top comments.
-# Written to produce plain English for non-technical readers.
-DESCRIPTION_PROMPT_TEMPLATE = """You are helping non-technical contributors understand open source tasks.
+# ─── Enrichment prompt (title + description in one call) ──────────────────────
+#
+# Returns a JSON object so parsing is deterministic.
+# Title: action-oriented, max 12 words, plain English, no jargon.
+# Description: 2-3 sentences, starts with what the contributor will DO,
+#              mentions the skill required, no code references.
+ENRICHMENT_PROMPT_TEMPLATE = """You are helping non-technical contributors discover open source tasks.
 
 Given this GitHub issue:
 - Repository: {repo_name} — {repo_description}
-- Issue title: {issue_title}
+- Original title: {issue_title}
 - Labels: {labels}
+- Issue body: {body}
 - Top comments: {first_comments}
 
-Write a clear, plain-English description (maximum 60 words) of what this task involves. Write for someone with no coding background — a designer, writer, or researcher. Do not mention GitHub, pull requests, or technical implementation details. Focus on what the person will actually be doing."""
+Return a JSON object with exactly two keys:
+
+"title": Rewrite the issue title as a plain, action-oriented phrase (maximum 12 words) that a designer, writer, or researcher can immediately understand. Remove all technical jargon, version numbers, and code references. Start with an active verb when possible.
+
+"description": Write 2-3 sentences describing what the contributor will actually do. Start with "You will..." or "This task involves...". Mention the specific skill required (e.g. writing, design, translation, research). Use plain English — no GitHub jargon, no code references, no mention of pull requests or commits. Write for someone discovering open source for the first time.
+
+Examples of good output:
+{{"title": "Help translate the app into new languages for the upcoming release", "description": "You will translate text strings in the app into your language, making it accessible to more people around the world. This task requires fluency in both English and the target language. No technical skills are needed — just careful, accurate translation."}}
+{{"title": "Design an empty state screen for the dashboard", "description": "You will design a friendly screen shown to new users who have no data yet. This task requires visual design skills and an eye for user experience. The goal is to make the app feel welcoming rather than empty."}}
+
+Return only the JSON object — no other text, no markdown code fences."""
 
 
 def strip_markdown(text: str) -> str:
@@ -75,7 +93,7 @@ def needs_ai_description(body: Optional[str]) -> bool:
 
     Returns True when:
     - The issue body is None or empty
-    - The body has fewer than 20 words after stripping markdown
+    - The body has fewer than MIN_DESCRIPTION_WORDS words after stripping markdown
 
     Args:
         body: Raw GitHub issue body (may be None)
@@ -87,9 +105,125 @@ def needs_ai_description(body: Optional[str]) -> bool:
         return True
 
     word_count = len(strip_markdown(body).split())
-    # Below 20 words the description is too thin for a non-technical reader
     return word_count < MIN_DESCRIPTION_WORDS
 
+
+def generate_enrichment(
+    body: Optional[str],
+    repo_name: str,
+    repo_description: str,
+    issue_title: str,
+    labels: list,
+    first_comments: list,
+) -> dict:
+    """
+    Generate both an AI title and a plain-English description in one Claude call.
+
+    Always rewrites the title. Only generates a description when the original
+    body is missing or too short (< MIN_DESCRIPTION_WORDS words). If the body
+    is sufficient, description_display is set from the original body and
+    is_ai_generated is False, but ai_title is still produced.
+
+    Args:
+        body:             Raw GitHub issue body (may be None)
+        repo_name:        Repository full name (e.g. "chaoss/augur")
+        repo_description: Short description from the GitHub repo description field
+        issue_title:      Original GitHub issue title
+        labels:           List of GitHub label name strings
+        first_comments:   Up to 3 comment body strings for extra context
+
+    Returns:
+        Dict with keys:
+          ai_title (str | None):       AI-rewritten title, None on failure
+          description_display (str):   Display description (AI or original body)
+          is_ai_generated (bool):      True if description_display came from Claude
+    """
+    need_description = needs_ai_description(body)
+
+    if not config.ANTHROPIC_API_KEY:
+        logger.error("ANTHROPIC_API_KEY not set — skipping enrichment")
+        return {
+            "ai_title": None,
+            "description_display": body if not need_description else FALLBACK_DESCRIPTION,
+            "is_ai_generated": False,
+        }
+
+    prompt = ENRICHMENT_PROMPT_TEMPLATE.format(
+        repo_name=repo_name,
+        repo_description=repo_description or "No description available",
+        issue_title=issue_title,
+        labels=", ".join(labels) if labels else "none",
+        body=strip_markdown(body)[:800] if body else "No body provided",
+        first_comments=(
+            "\n".join(f"- {c[:300]}" for c in first_comments)
+            if first_comments
+            else "No comments yet"
+        ),
+    )
+
+    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    ctx = {"repo": repo_name, "issue_title": issue_title[:60]}
+
+    def _call_claude() -> str:
+        message = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=300,  # title ~15 tokens + description ~120 tokens + JSON overhead
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return message.content[0].text.strip()
+
+    raw = retry_call(_call_claude, fallback=None, context=ctx, log=logger)
+
+    if raw is None:
+        # All retries exhausted — return safe fallbacks
+        return {
+            "ai_title": None,
+            "description_display": body if not need_description else FALLBACK_DESCRIPTION,
+            "is_ai_generated": False,
+        }
+
+    # Parse the JSON response — be defensive, Claude occasionally adds prose
+    ai_title: Optional[str] = None
+    generated_description: Optional[str] = None
+    try:
+        # Strip any accidental markdown fences before parsing
+        cleaned = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
+        parsed = json.loads(cleaned)
+        ai_title = parsed.get("title") or None
+        generated_description = parsed.get("description") or None
+    except (json.JSONDecodeError, AttributeError):
+        logger.warning(
+            "Failed to parse enrichment JSON — falling back",
+            extra={"repo": repo_name, "raw_preview": raw[:120]},
+        )
+
+    # Decide description_display
+    if need_description:
+        description_display = generated_description or FALLBACK_DESCRIPTION
+        is_ai_generated = bool(generated_description)
+    else:
+        # Original body is long enough — use it, even if JSON parse failed
+        description_display = body  # type: ignore[assignment]
+        is_ai_generated = False
+
+    logger.info(
+        "AI enrichment complete",
+        extra={
+            "repo": repo_name,
+            "issue_title": issue_title[:60],
+            "ai_title_generated": ai_title is not None,
+            "description_ai": is_ai_generated,
+        },
+    )
+
+    return {
+        "ai_title": ai_title,
+        "description_display": description_display,
+        "is_ai_generated": is_ai_generated,
+    }
+
+
+# ─── Legacy helpers (kept for backward compatibility) ─────────────────────────
 
 def generate_description(
     repo_name: str,
@@ -99,78 +233,19 @@ def generate_description(
     first_comments: list,
 ) -> str:
     """
-    Generate a plain-English description for a GitHub issue using Claude Sonnet.
-
-    This is called when an issue has no body, or a body shorter than 20 words.
-    The goal is to make the issue readable for non-technical contributors who
-    may not understand GitHub-specific language or developer jargon.
-
-    The Anthropic client is initialised inline so the API key is read after
-    the app config has been validated at startup.
-
-    Args:
-        repo_name:        Repository full name (e.g. "chaoss/augur")
-        repo_description: Short description from the GitHub repo description field
-        issue_title:      The issue title
-        labels:           List of GitHub label name strings
-        first_comments:   Up to 3 comment body strings for extra context
-
-    Returns:
-        A generated description capped at 60 words, or FALLBACK_DESCRIPTION
-        if generation fails for any reason.
+    Generate a plain-English description only (no title rewrite).
+    Kept for backward compatibility with the description backfill path.
+    New code should call generate_enrichment() instead.
     """
-    prompt = DESCRIPTION_PROMPT_TEMPLATE.format(
+    result = generate_enrichment(
+        body=None,  # force description generation
         repo_name=repo_name,
-        repo_description=repo_description or "No description available",
+        repo_description=repo_description,
         issue_title=issue_title,
-        labels=", ".join(labels) if labels else "none",
-        first_comments=(
-            "\n".join(f"- {c}" for c in first_comments)
-            if first_comments
-            else "No comments yet"
-        ),
+        labels=labels,
+        first_comments=first_comments,
     )
-
-    # Authentication errors should NOT be retried — the key is wrong and
-    # retrying immediately won't help. Check for them before the retry loop.
-    if not config.ANTHROPIC_API_KEY:
-        logger.error(
-            "Anthropic authentication failed — check ANTHROPIC_API_KEY in .env"
-        )
-        return FALLBACK_DESCRIPTION
-
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
-    ctx = {"repo": repo_name, "issue_title": issue_title[:60]}
-
-    def _call_claude() -> str:
-        """Single Anthropic API call — wrapped by retry_call for resilience."""
-        message = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=150,  # 60 words ≈ 80–100 tokens; 150 gives a safe buffer
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return message.content[0].text.strip()
-
-    result = retry_call(
-        _call_claude,
-        fallback=None,  # None signals we should use FALLBACK_DESCRIPTION below
-        context=ctx,
-        log=logger,
-    )
-
-    if result is None:
-        # All retries exhausted — return the safe fallback string
-        return FALLBACK_DESCRIPTION
-
-    logger.info(
-        "AI description generated",
-        extra={
-            "repo": repo_name,
-            "issue_title": issue_title[:60],
-            "word_count": len(result.split()),
-        },
-    )
-    return result
+    return result["description_display"]
 
 
 def process_issue_description(
@@ -183,31 +258,17 @@ def process_issue_description(
 ) -> tuple[str, bool]:
     """
     Decide whether to use the original description or generate one with Claude.
-
-    This is the main entry point called by the scraper for each issue.
-    Returns a tuple so the caller knows whether to set is_ai_generated=True.
-
-    Args:
-        body:             Raw GitHub issue body (may be None)
-        repo_name:        Repository full name
-        repo_description: GitHub repo description
-        issue_title:      Issue title
-        labels:           GitHub label names
-        first_comments:   Up to 3 comment strings for context
+    Kept for backward compatibility — new code calls generate_enrichment().
 
     Returns:
         Tuple of (description_display: str, is_ai_generated: bool)
     """
-    if not needs_ai_description(body):
-        # Original description is good enough — use it as-is
-        return (body, False)  # type: ignore[return-value]
-
-    # Original is missing or too short — generate with Claude
-    generated = generate_description(
+    result = generate_enrichment(
+        body=body,
         repo_name=repo_name,
         repo_description=repo_description,
         issue_title=issue_title,
         labels=labels,
         first_comments=first_comments,
     )
-    return (generated, True)
+    return result["description_display"], result["is_ai_generated"]

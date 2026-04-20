@@ -54,6 +54,7 @@ def _build_issue_response(task: Task) -> dict:
             "github_repo": project.github_repo,
         },
         "title": task.title,
+        "ai_title": task.ai_title,  # null when enrichment hasn't run yet
         "description_display": task.description_display,
         "is_ai_generated": task.is_ai_generated,
         "labels": task.labels or [],

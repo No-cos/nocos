@@ -57,7 +57,13 @@ class Task(Base):
     github_issue_id = Column(BigInteger, nullable=True, unique=True)
     github_issue_number = Column(Integer, nullable=True)
 
+    # Original GitHub issue title — preserved for audit; never altered.
     title = Column(String(500), nullable=False)
+
+    # AI-rewritten title in plain, action-oriented language for non-technical
+    # contributors. Null when generation has not yet run or failed. The API
+    # returns this in preference to title; UI falls back to title when null.
+    ai_title = Column(Text, nullable=True)
 
     # The original GitHub issue body — kept even if we replaced it with AI text.
     # Never exposed publicly via the API (SKILLS.md Section 16).

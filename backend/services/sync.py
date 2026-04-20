@@ -180,6 +180,8 @@ def _sync_single_task(task: Task, session: Session) -> None:
         task.description_original = current_body
         task.description_display = enriched["description_display"]
         task.is_ai_generated = enriched["is_ai_generated"]
+        if enriched.get("ai_title"):
+            task.ai_title = enriched["ai_title"]
         session.add(task)
         # Invalidate the cached detail response so the next request gets fresh data
         app_cache.invalidate_issue(str(task.id))
@@ -405,6 +407,7 @@ def _ingest_repo_issues(
             github_issue_id=github_issue_id,
             github_issue_number=issue.get("github_issue_number"),
             title=issue.get("title", ""),
+            ai_title=issue.get("ai_title"),
             description_original=issue.get("body"),
             description_display=issue.get(
                 "description_display",
@@ -440,56 +443,55 @@ def _ingest_repo_issues(
 
 def run_description_backfill(session_factory) -> dict:
     """
-    Retry AI description generation for tasks that were stored with the
-    fallback string — meaning they were scraped when the Anthropic API key
-    was absent or the generation call failed.
+    Retry AI enrichment (description + title) for tasks that are missing them.
 
-    Finds every active task where is_ai_generated is False AND the body is
-    too short to display as-is, then re-runs the enricher on each one.  Safe
-    to call repeatedly — once a task has a real description it won't match
-    the query again.
+    Two passes per run:
+      1. Description pass — tasks with is_ai_generated=False and a body too
+         short to display as-is (originally stored before the Anthropic key
+         was present or when generation failed).
+      2. Title pass — tasks with ai_title IS NULL. Runs on ALL active tasks
+         regardless of description state so existing issues get titles too.
+
+    Safe to call repeatedly — completed tasks won't match either query again.
 
     Args:
         session_factory: SQLAlchemy sessionmaker
 
     Returns:
-        Dict: { checked, updated, skipped_no_key }
+        Dict: { desc_checked, desc_updated, title_checked, title_updated, skipped_no_key }
     """
     from services.ai.description import (
         needs_ai_description,
+        generate_enrichment,
         FALLBACK_DESCRIPTION,
     )
     from config import config as _config
 
-    # No point running if the key still isn't present
     if not _config.ANTHROPIC_API_KEY:
         logger.error(
             "run_description_backfill: ANTHROPIC_API_KEY is not set — "
-            "no descriptions will be generated. Add the key to your environment."
+            "no enrichment will run. Add the key to your environment."
         )
-        return {"checked": 0, "updated": 0, "skipped_no_key": True}
+        return {"desc_checked": 0, "desc_updated": 0,
+                "title_checked": 0, "title_updated": 0,
+                "skipped_no_key": True}
 
-    logger.info("Description backfill started")
+    logger.info("Enrichment backfill started (descriptions + titles)")
 
-    checked = 0
-    updated = 0
+    desc_checked = desc_updated = title_checked = title_updated = 0
 
     with session_factory() as session:
         try:
-            # Find tasks that either:
-            #  a) still hold the verbatim fallback string, OR
-            #  b) were stored with is_ai_generated=False and a body too short
-            #     to have been useful (body was there but generation didn't run)
-            candidates = (
+            # ── Pass 1: description backfill ──────────────────────────────
+            desc_candidates = (
                 session.query(Task)
                 .filter(Task.is_active == True, Task.is_ai_generated == False)
                 .all()
             )
 
-            for task in candidates:
-                checked += 1
+            for task in desc_candidates:
+                desc_checked += 1
 
-                # Skip if the original body is long enough to stand on its own
                 if not needs_ai_description(task.description_original):
                     continue
 
@@ -508,14 +510,15 @@ def run_description_backfill(session_factory) -> dict:
                     repo_description=(task.project.description or "") if task.project else "",
                 )
 
-                # Only update if we actually got a real description back
                 new_display = enriched.get("description_display", "")
                 if new_display and new_display != FALLBACK_DESCRIPTION:
                     task.description_display = new_display
                     task.is_ai_generated = enriched.get("is_ai_generated", True)
+                    if enriched.get("ai_title") and not task.ai_title:
+                        task.ai_title = enriched["ai_title"]
                     session.add(task)
                     app_cache.invalidate_issue(str(task.id))
-                    updated += 1
+                    desc_updated += 1
                     logger.info(
                         "Backfill: description updated",
                         extra={"task_id": str(task.id), "repo": f"{owner}/{repo}"},
@@ -523,19 +526,68 @@ def run_description_backfill(session_factory) -> dict:
 
             session.commit()
 
+            # ── Pass 2: ai_title backfill for all tasks missing it ────────
+            title_candidates = (
+                session.query(Task)
+                .filter(Task.is_active == True, Task.ai_title == None)
+                .all()
+            )
+
+            for task in title_candidates:
+                title_checked += 1
+                owner = task.project.github_owner if task.project else ""
+                repo = task.project.github_repo if task.project else ""
+
+                try:
+                    result = generate_enrichment(
+                        body=task.description_original,
+                        repo_name=f"{owner}/{repo}",
+                        repo_description=(task.project.description or "") if task.project else "",
+                        issue_title=task.title,
+                        labels=task.labels or [],
+                        first_comments=[],
+                    )
+                    if result.get("ai_title"):
+                        task.ai_title = result["ai_title"]
+                        session.add(task)
+                        app_cache.invalidate_issue(str(task.id))
+                        title_updated += 1
+                        logger.info(
+                            "Backfill: ai_title generated",
+                            extra={"task_id": str(task.id), "repo": f"{owner}/{repo}"},
+                        )
+                except Exception:
+                    logger.exception(
+                        "Backfill: ai_title generation failed for task",
+                        extra={"task_id": str(task.id)},
+                    )
+
+            session.commit()
+
         except Exception as e:
             session.rollback()
             logger.exception(
-                "Description backfill failed — rolled back",
+                "Enrichment backfill failed — rolled back",
                 extra={"error": str(e)},
             )
             raise
 
     logger.info(
-        "Description backfill complete",
-        extra={"checked": checked, "updated": updated},
+        "Enrichment backfill complete",
+        extra={
+            "desc_checked": desc_checked,
+            "desc_updated": desc_updated,
+            "title_checked": title_checked,
+            "title_updated": title_updated,
+        },
     )
-    return {"checked": checked, "updated": updated, "skipped_no_key": False}
+    return {
+        "desc_checked": desc_checked,
+        "desc_updated": desc_updated,
+        "title_checked": title_checked,
+        "title_updated": title_updated,
+        "skipped_no_key": False,
+    }
 
 
 def run_scrape(extra_repos: list[str], session_factory) -> dict:

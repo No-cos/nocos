@@ -40,6 +40,7 @@ export interface Issue {
   project_id: string;
   project: Pick<Project, "id" | "name" | "avatar_url" | "activity_status">;
   title: string;
+  ai_title: string | null;
   description_display: string;
   is_ai_generated: boolean;
   labels: string[];

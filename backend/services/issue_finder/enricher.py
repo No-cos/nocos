@@ -11,7 +11,7 @@ import logging
 import time
 from typing import Optional
 
-from services.ai.description import process_issue_description, needs_ai_description
+from services.ai.description import generate_enrichment, needs_ai_description
 from services.github_client import github_client
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ def enrich_issue(issue: dict, repo_description: str = "") -> dict:
             limit=3,
         )
 
-    description_display, is_ai_generated = process_issue_description(
+    result = generate_enrichment(
         body=body,
         repo_name=f"{owner}/{repo}",
         repo_description=repo_description,
@@ -70,15 +70,18 @@ def enrich_issue(issue: dict, repo_description: str = "") -> dict:
     )
 
     enriched = {**issue}
-    enriched["description_display"] = description_display
-    enriched["is_ai_generated"] = is_ai_generated
+    enriched["ai_title"] = result["ai_title"]
+    enriched["description_display"] = result["description_display"]
+    enriched["is_ai_generated"] = result["is_ai_generated"]
 
-    if is_ai_generated:
+    if result["ai_title"] or result["is_ai_generated"]:
         logger.info(
-            "AI description generated for issue",
+            "AI enrichment applied to issue",
             extra={
                 "github_issue_id": issue.get("github_issue_id"),
                 "repo": f"{owner}/{repo}",
+                "ai_title": result["ai_title"] is not None,
+                "ai_description": result["is_ai_generated"],
             },
         )
 
@@ -132,6 +135,7 @@ def enrich_issues(
             )
             # Add the issue with fallback description so it still gets stored
             fallback = {**issue}
+            fallback["ai_title"] = None
             fallback["description_display"] = "Visit GitHub for full details on this task."
             fallback["is_ai_generated"] = False
             enriched_issues.append(fallback)
@@ -145,6 +149,7 @@ def enrich_issues(
                 # Add remaining issues with fallback so none are silently dropped
                 for remaining in issues[len(enriched_issues):]:
                     fallback = {**remaining}
+                    fallback["ai_title"] = None
                     fallback["description_display"] = "Visit GitHub for full details on this task."
                     fallback["is_ai_generated"] = False
                     enriched_issues.append(fallback)

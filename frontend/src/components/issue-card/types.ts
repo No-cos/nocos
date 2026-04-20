@@ -3,6 +3,7 @@
 export interface IssueCardIssue {
   id: string;
   title: string;
+  ai_title: string | null;
   description_display: string;
   is_ai_generated: boolean;
   contribution_type: string;

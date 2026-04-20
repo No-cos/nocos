@@ -28,6 +28,7 @@ const MOCK_ISSUES: Issue[] = [
     title: "Improve the onboarding flow for new design contributors",
     description_display:
       "Help redesign the welcome experience for designers joining the CHAOSS community. You will review the current onboarding steps and suggest clearer visual guidance to help contributors find their first task faster.",
+    ai_title: null,
     is_ai_generated: false,
     labels: ["design", "good-first-issue"],
     contribution_type: "design",
@@ -54,6 +55,7 @@ const MOCK_ISSUES: Issue[] = [
     title: "Write documentation for the contributor handbook",
     description_display:
       "Mozilla needs clear, friendly documentation for its contributor handbook. You will write step-by-step guides explaining how to join the project, pick tasks, and submit work — written for a non-technical audience.",
+    ai_title: null,
     is_ai_generated: false,
     labels: ["documentation", "help-wanted"],
     contribution_type: "documentation",
@@ -78,6 +80,7 @@ const MOCK_ISSUES: Issue[] = [
       activity_status: "active",
     },
     title: "Translate the design contribution guide to French",
+    ai_title: null,
     description_display:
       "The Open Source Design contribution guide needs to be translated into French to reach a wider community. You will translate the existing English guide, ensuring the tone stays friendly and accessible.",
     is_ai_generated: true,
@@ -106,6 +109,7 @@ const MOCK_ISSUES: Issue[] = [
     title: "Review and improve accessibility of the platform UI",
     description_display:
       "Ushahidi is looking for someone to audit the platform's interface for accessibility issues. You will review screen layouts, colour contrast, and keyboard navigation and document your findings in a short report.",
+    ai_title: null,
     is_ai_generated: false,
     labels: ["a11y", "design", "help-wanted"],
     contribution_type: "design",
@@ -132,6 +136,7 @@ const MOCK_ISSUES: Issue[] = [
     title: "Write social media content for the Hacktoberfest campaign",
     description_display:
       "Wikimedia needs engaging social media posts to promote their Hacktoberfest participation. You will draft a series of posts for Twitter/X and LinkedIn that highlight non-technical contribution opportunities.",
+    ai_title: null,
     is_ai_generated: false,
     labels: ["marketing", "content", "hacktoberfest"],
     contribution_type: "marketing",
@@ -158,6 +163,7 @@ const MOCK_ISSUES: Issue[] = [
     title: "Conduct user research interviews with new contributors",
     description_display:
       "Help Apache understand why new contributors drop off during onboarding. You will conduct 5–8 short interviews with recent contributors, write up key themes, and share your findings with the community team.",
+    ai_title: null,
     is_ai_generated: false,
     labels: ["research", "community"],
     contribution_type: "research",
@@ -182,6 +188,7 @@ const MOCK_ISSUES: Issue[] = [
       activity_status: "active",
     },
     title: "Review pull requests for clarity and completeness",
+    ai_title: null,
     description_display:
       "Nextcloud needs reviewers to check that pull request descriptions are clear and complete before merging. You will read PR descriptions, flag missing context, and suggest improvements — no coding knowledge required.",
     is_ai_generated: true,
@@ -210,6 +217,7 @@ const MOCK_ISSUES: Issue[] = [
     title: "Analyse and document dashboard usage patterns",
     description_display:
       "Grafana wants to understand how users interact with dashboards. You will analyse publicly available usage data, identify common patterns, and present your findings in a clear summary document.",
+    ai_title: null,
     is_ai_generated: false,
     labels: ["data", "documentation"],
     contribution_type: "data_analytics",
@@ -236,6 +244,7 @@ const MOCK_ISSUES: Issue[] = [
     title: "Create visual explainers for the Badging Initiative",
     description_display:
       "The CHAOSS Badging Initiative needs simple visual explainers to help projects understand what each badge means. You will design 3–5 infographic-style illustrations that can be shared on social media and documentation.",
+    ai_title: null,
     is_ai_generated: false,
     labels: ["design", "community"],
     contribution_type: "design",
@@ -262,6 +271,7 @@ const MOCK_ISSUES: Issue[] = [
     title: "Improve community management for the Django forum",
     description_display:
       "Django's community forum needs help with moderation, welcoming new members, and surfacing unanswered questions. You will spend a few hours each week helping keep the forum friendly and organised.",
+    ai_title: null,
     is_ai_generated: false,
     labels: ["community", "help-wanted"],
     contribution_type: "community",
@@ -288,6 +298,7 @@ const MOCK_ISSUES: Issue[] = [
     title: "Design a landing page for the new contributor portal",
     description_display:
       "The Linux Foundation is building a new contributor portal and needs a landing page design. You will create wireframes and a high-fidelity mockup in Figma, following the existing brand guidelines.",
+    ai_title: null,
     is_ai_generated: false,
     labels: ["design", "ui", "good-first-issue"],
     contribution_type: "design",
@@ -312,6 +323,7 @@ const MOCK_ISSUES: Issue[] = [
       activity_status: "active",
     },
     title: "Translate product category labels to Swahili",
+    ai_title: null,
     description_display:
       "Open Food Facts needs product category labels translated into Swahili to support East African users. You will translate a list of approximately 200 food category names and verify accuracy with native speakers if possible.",
     is_ai_generated: true,
