@@ -29,9 +29,10 @@ interface IssueGridProps {
   activeTypes: string[];
   search: string;
   bountyOnly?: boolean;
+  aiGenerated?: boolean;
 }
 
-export function IssueGrid({ activeTypes, search, bountyOnly }: IssueGridProps) {
+export function IssueGrid({ activeTypes, search, bountyOnly, aiGenerated }: IssueGridProps) {
   const router = useRouter();
   const [page, setPage] = useState(1);
 
@@ -44,6 +45,7 @@ export function IssueGrid({ activeTypes, search, bountyOnly }: IssueGridProps) {
     types: activeTypes.length > 0 ? activeTypes.join(",") : undefined,
     search: search || undefined,
     bounty: bountyOnly || undefined,
+    aiGenerated: aiGenerated || undefined,
   });
 
   const totalPages = data ? Math.ceil(data.meta.total / PAGE_SIZE) : 0;

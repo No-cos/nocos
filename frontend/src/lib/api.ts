@@ -49,7 +49,7 @@ export interface Issue {
   is_bounty: boolean;
   bounty_amount: number | null;
   difficulty: "beginner" | "intermediate" | "advanced" | null;
-  source: "github_scrape" | "manual_post";
+  source: "github_scrape" | "manual_post" | "ai_generated";
   github_issue_url: string;
   github_created_at: string | null;
   is_active: boolean;
@@ -114,6 +114,8 @@ interface FetchIssuesOptions {
   paid?: boolean;
   bounty?: boolean;
   difficulty?: string;
+  /** When true, only returns tasks with source=ai_generated */
+  ai_generated?: boolean;
 }
 
 /**
@@ -136,9 +138,63 @@ export async function fetchIssues(
   if (options.paid !== undefined) params.set("paid", String(options.paid));
   if (options.bounty !== undefined) params.set("bounty", String(options.bounty));
   if (options.difficulty) params.set("difficulty", options.difficulty);
+  if (options.ai_generated !== undefined) params.set("ai_generated", String(options.ai_generated));
 
   const query = params.toString();
   return apiFetch<IssueListResponse>(`/api/v1/issues${query ? `?${query}` : ""}`);
+}
+
+// ─── AI Task Generator ────────────────────────────────────────────────────────
+
+export interface GeneratedTask {
+  title: string;
+  description: string;
+  category: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  estimated_hours: 3 | 6 | 10;
+}
+
+export interface GenerateTasksPreviewResponse {
+  success: boolean;
+  data: {
+    repo_name: string;
+    tasks: GeneratedTask[];
+  };
+}
+
+export interface PublishTasksResponse {
+  success: boolean;
+  data: {
+    saved_count: number;
+    tasks: Array<{ id: string; title: string }>;
+  };
+}
+
+/**
+ * Preview AI-generated tasks for a repo WITHOUT saving to the database.
+ * Maps to POST /api/v1/generate-tasks/preview.
+ */
+export async function generateTasksPreview(
+  repoUrl: string
+): Promise<GenerateTasksPreviewResponse> {
+  return apiFetch<GenerateTasksPreviewResponse>("/api/v1/generate-tasks/preview", {
+    method: "POST",
+    body: JSON.stringify({ repo_url: repoUrl }),
+  });
+}
+
+/**
+ * Save the reviewed tasks to the database.
+ * Maps to POST /api/v1/generate-tasks/publish.
+ */
+export async function publishTasks(
+  repoUrl: string,
+  tasks: GeneratedTask[]
+): Promise<PublishTasksResponse> {
+  return apiFetch<PublishTasksResponse>("/api/v1/generate-tasks/publish", {
+    method: "POST",
+    body: JSON.stringify({ repo_url: repoUrl, tasks }),
+  });
 }
 
 /**

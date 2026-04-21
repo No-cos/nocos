@@ -25,6 +25,7 @@ import { IssueGrid } from "@/components/issue-grid";
 import { FeaturedProjects } from "@/components/featured-projects";
 import { SubscribeSection } from "@/components/subscribe-section";
 import { Footer } from "@/components/footer";
+import { AITaskBanner } from "@/components/ai-task-banner";
 
 export default function HomePage() {
   // Filter and search state is lifted here so FilterBar, SearchBar, and
@@ -32,6 +33,7 @@ export default function HomePage() {
   const [activeTypes, setActiveTypes] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [bountyOnly, setBountyOnly] = useState(false);
+  const [aiGenerated, setAiGenerated] = useState(false);
 
   function handleTypesChange(types: string[]) {
     setActiveTypes(types);
@@ -54,11 +56,16 @@ export default function HomePage() {
         {/* ── Category Marquee ────────────────────────────────────── */}
         <CategoryMarquee />
 
+        {/* ── AI Task Banner (dev only — returns null in production) ── */}
+        <section className="page-container" style={{ paddingTop: "48px", paddingBottom: 0 }}>
+          <AITaskBanner />
+        </section>
+
         {/* ── Discovery section ───────────────────────────────────── */}
         <section
           id="issues-section"
           className="page-container"
-          style={{ paddingTop: "100px", paddingBottom: "100px" }}
+          style={{ paddingTop: "52px", paddingBottom: "100px" }}
           aria-label="Issue discovery"
         >
           {/* Section header — matches Featured Projects header style */}
@@ -98,13 +105,15 @@ export default function HomePage() {
                 onChange={handleTypesChange}
                 bountyOnly={bountyOnly}
                 onBountyChange={setBountyOnly}
+                aiGenerated={aiGenerated}
+                onAiGeneratedChange={setAiGenerated}
               />
             </div>
             <SearchBar value={search} onChange={setSearch} />
           </div>
 
           {/* Issue count / active filter summary — helps orientation */}
-          {(activeTypes.length > 0 || search || bountyOnly) && (
+          {(activeTypes.length > 0 || search || bountyOnly || aiGenerated) && (
             <p
               style={{
                 fontFamily: "'Inter', sans-serif",
@@ -113,6 +122,8 @@ export default function HomePage() {
                 margin: "12px 0 0",
               }}
             >
+              {aiGenerated && "✦ AI Generated"}
+              {aiGenerated && (bountyOnly || activeTypes.length > 0 || search) && " · "}
               {bountyOnly && "💰 Bounties"}
               {bountyOnly && (activeTypes.length > 0 || search) && " · "}
               {activeTypes.length > 0 &&
@@ -124,6 +135,7 @@ export default function HomePage() {
                   setActiveTypes([]);
                   setSearch("");
                   setBountyOnly(false);
+                  setAiGenerated(false);
                 }}
                 style={{
                   marginLeft: "12px",
@@ -144,7 +156,7 @@ export default function HomePage() {
 
           {/* Issue grid — wired to filter + search + bounty state */}
           <div style={{ marginTop: "28px" }}>
-            <IssueGrid activeTypes={activeTypes} search={search} bountyOnly={bountyOnly} />
+            <IssueGrid activeTypes={activeTypes} search={search} bountyOnly={bountyOnly} aiGenerated={aiGenerated} />
           </div>
         </section>
 

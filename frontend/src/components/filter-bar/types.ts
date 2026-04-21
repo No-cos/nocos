@@ -9,4 +9,8 @@ export interface FilterBarProps {
   bountyOnly?: boolean;
   /** Called when the Bounties pill is toggled. */
   onBountyChange?: (value: boolean) => void;
+  /** When true, only AI-generated tasks (source=ai_generated) are shown. */
+  aiGenerated?: boolean;
+  /** Called when the AI Generated pill is toggled. */
+  onAiGeneratedChange?: (value: boolean) => void;
 }

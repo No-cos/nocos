@@ -12,6 +12,8 @@ export interface IssueCardIssue {
   is_bounty: boolean;
   bounty_amount: number | null;
   difficulty?: string | null;
+  /** "github_scrape" | "manual_post" | "ai_generated" — drives the AI badge */
+  source?: string;
   github_issue_url: string;
   github_created_at?: string | null;
   project: {

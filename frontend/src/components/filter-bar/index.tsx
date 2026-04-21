@@ -23,17 +23,24 @@ export function FilterBar({
   onChange,
   bountyOnly = false,
   onBountyChange,
+  aiGenerated = false,
+  onAiGeneratedChange,
 }: FilterBarProps) {
-  const allSelected = activeTypes.length === 0 && !bountyOnly;
+  const allSelected = activeTypes.length === 0 && !bountyOnly && !aiGenerated;
 
   function handleAll() {
-    // "All" resets both type filters and the bounty toggle
+    // "All" resets type filters, the bounty toggle, and the AI Generated toggle
     onChange([]);
     onBountyChange?.(false);
+    onAiGeneratedChange?.(false);
   }
 
   function handleBounty() {
     onBountyChange?.(!bountyOnly);
+  }
+
+  function handleAiGenerated() {
+    onAiGeneratedChange?.(!aiGenerated);
   }
 
   function handleType(type: string) {
@@ -124,6 +131,36 @@ export function FilterBar({
       >
         💰 Bounties
       </button>
+
+      {/* AI Generated pill — dev-only filter for tasks created by the AI generator */}
+      {process.env.NODE_ENV === "development" && (
+        <button
+          type="button"
+          onClick={handleAiGenerated}
+          aria-pressed={aiGenerated}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
+            padding: "5px 14px",
+            backgroundColor: aiGenerated
+              ? "var(--color-cta-primary)"
+              : "var(--color-surface)",
+            color: aiGenerated ? "#ffffff" : "var(--color-cta-primary)",
+            border: `1.5px solid var(--color-cta-primary)`,
+            borderRadius: "999px",
+            fontFamily: "'Inter', sans-serif",
+            fontWeight: 600,
+            fontSize: "13px",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+            transition: "background 150ms ease, color 150ms ease",
+          }}
+        >
+          ✦ AI Generated
+        </button>
+      )}
 
       {/* One pill per contribution type */}
       {ALL_CONTRIBUTION_TYPES.map((type) => {

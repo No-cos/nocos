@@ -140,9 +140,13 @@ export function IssueCard({ issue, onClick, animationIndex }: IssueCardProps) {
       }}
       aria-label={`${issue.title} — ${formatContributionType(issue.contribution_type)}${issue.is_bounty ? " — Bounty" : ""}`}
       style={{
-        position: "relative",  // Needed for absolute-positioned bounty badge
+        position: "relative",  // Needed for absolute-positioned badges
         backgroundColor: "var(--color-surface)",
         border: `1px solid ${issue.is_bounty ? "var(--color-bounty-border)" : "var(--color-border)"}`,
+        // Subtle purple top accent for AI-generated tasks
+        borderTop: issue.source === "ai_generated"
+          ? "2px solid var(--color-cta-primary)"
+          : `1px solid ${issue.is_bounty ? "var(--color-bounty-border)" : "var(--color-border)"}`,
         borderRadius: "12px",
         boxShadow: "var(--card-shadow)",
         padding: "20px",
@@ -307,6 +311,29 @@ export function IssueCard({ issue, onClick, animationIndex }: IssueCardProps) {
             }}
           >
             +{hiddenTagCount}
+          </span>
+        )}
+        {/* AI-generated badge — only for tasks created by the AI Task Generator */}
+        {issue.source === "ai_generated" && (
+          <span
+            aria-label="AI suggested task"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "3px",
+              padding: "3px 8px",
+              backgroundColor: "transparent",
+              color: "var(--color-cta-primary)",
+              border: "1.5px solid var(--color-cta-primary)",
+              borderRadius: "999px",
+              fontFamily: "'Inter', sans-serif",
+              fontSize: "11px",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+            }}
+          >
+            ✦ AI suggested
           </span>
         )}
       </div>
