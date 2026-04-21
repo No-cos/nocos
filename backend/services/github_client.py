@@ -513,6 +513,147 @@ class GitHubClient:
 
         return results
 
+    def get_readme(self, owner: str, repo: str) -> Optional[str]:
+        """
+        Fetch and decode the README for a repository.
+
+        Returns the plain text content of the README (base64-decoded).
+        Capped at 6,000 characters before returning so downstream callers
+        never receive an unexpectedly large string.
+        Returns None if the README does not exist or cannot be fetched.
+
+        Args:
+            owner: Repository owner
+            repo:  Repository name
+
+        Returns:
+            Decoded README text (up to 6,000 chars), or None on failure.
+        """
+        import base64
+
+        cache_key = f"readme:{owner}:{repo}"
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            self._check_rate_limit()
+        except RateLimitLowError:
+            return None
+
+        try:
+            response = self._http.get(f"/repos/{owner}/{repo}/readme")
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            data = response.json()
+            encoded = data.get("content", "")
+            # GitHub returns base64 with newlines — strip them before decoding
+            text = base64.b64decode(encoded.replace("\n", "")).decode("utf-8", errors="replace")
+            # Cap at 6,000 chars — enough context for Claude without huge tokens
+            truncated = text[:6000]
+            self._cache_set(cache_key, truncated, ttl_seconds=3600)
+            return truncated
+        except Exception as e:
+            logger.warning(
+                "Could not fetch README",
+                extra={"owner": owner, "repo": repo, "error": str(e)},
+            )
+            return None
+
+    def get_open_issues(
+        self, owner: str, repo: str, per_page: int = 20
+    ) -> list:
+        """
+        Fetch the first page of open issues for a repository (no label filter).
+
+        Used by the AI Task Generator to build a picture of existing issues
+        so Claude can avoid generating duplicates.
+        Cached for 30 minutes.
+
+        Args:
+            owner:    Repository owner
+            repo:     Repository name
+            per_page: Number of issues to fetch (default 20, max 100)
+
+        Returns:
+            List of GitHub issue objects (title + number), or [] on failure.
+        """
+        cache_key = f"open_issues:{owner}:{repo}:{per_page}"
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            self._check_rate_limit()
+        except RateLimitLowError:
+            return []
+
+        def _fetch() -> list:
+            response = self._http.get(
+                f"/repos/{owner}/{repo}/issues",
+                params={"state": "open", "per_page": per_page, "page": 1},
+            )
+            response.raise_for_status()
+            return response.json()
+
+        issues = retry_call(
+            _fetch,
+            fallback=[],
+            context={"owner": owner, "repo": repo},
+            log=logger,
+        )
+        if issues:
+            self._cache_set(cache_key, issues, ttl_seconds=1800)
+        return issues
+
+    def get_repo_contents(
+        self, owner: str, repo: str, path: str = ""
+    ) -> list:
+        """
+        Fetch the top-level file/folder listing for a repository.
+
+        Returns a list of file and directory names so Claude can understand
+        the project structure at a glance (e.g. presence of /docs, /i18n).
+        Cached for 1 hour.
+
+        Args:
+            owner: Repository owner
+            repo:  Repository name
+            path:  Sub-path within the repo (default "" = root)
+
+        Returns:
+            List of entry name strings, or [] on failure.
+        """
+        cache_key = f"contents:{owner}:{repo}:{path}"
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            self._check_rate_limit()
+        except RateLimitLowError:
+            return []
+
+        def _fetch() -> list:
+            response = self._http.get(
+                f"/repos/{owner}/{repo}/contents/{path}",
+            )
+            if response.status_code == 404:
+                return []
+            response.raise_for_status()
+            return [entry.get("name", "") for entry in response.json() if isinstance(entry, dict)]
+
+        names = retry_call(
+            _fetch,
+            fallback=[],
+            context={"owner": owner, "repo": repo, "path": path},
+            log=logger,
+        )
+        if names:
+            self._cache_set(cache_key, names, ttl_seconds=3600)
+        return names
+
     def close(self) -> None:
         """Close the underlying HTTP client. Call on application shutdown."""
         self._http.close()

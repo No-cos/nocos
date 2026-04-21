@@ -82,6 +82,7 @@ def list_issues(
     paid: Optional[bool] = Query(None, description="Filter by paid status"),
     bounty: Optional[bool] = Query(None, description="Filter to only bounty issues (is_bounty=true)"),
     difficulty: Optional[str] = Query(None, description="Filter by difficulty: beginner|intermediate|advanced"),
+    ai_generated: Optional[bool] = Query(None, description="Filter to only AI-generated tasks (source=ai_generated)"),
     db: Session = Depends(get_db),
 ) -> dict:
     """
@@ -132,6 +133,13 @@ def list_issues(
     # Difficulty filter
     if difficulty:
         query = query.filter(Task.difficulty == difficulty)
+
+    # AI-generated task filter — shows only tasks created by the AI Task Generator
+    if ai_generated is not None:
+        if ai_generated:
+            query = query.filter(Task.source == "ai_generated")
+        else:
+            query = query.filter(Task.source != "ai_generated")
 
     # Search — matches against issue title or project name (case-insensitive)
     if search:

@@ -113,7 +113,7 @@ class Task(Base):
     )
 
     source = Column(
-        Enum("github_scrape", "manual_post", name="task_source_enum"),
+        Enum("github_scrape", "manual_post", "ai_generated", name="task_source_enum"),
         nullable=False,
         default="github_scrape",
     )
