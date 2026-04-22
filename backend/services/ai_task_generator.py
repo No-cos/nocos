@@ -17,6 +17,7 @@
 
 import json
 import logging
+import os
 import re
 from typing import Optional
 
@@ -27,8 +28,7 @@ from services.issue_finder.scraper import OPEN_SOURCE_LICENSES
 logger = logging.getLogger(__name__)
 
 # The model to use for task generation.
-# claude-sonnet-4-5 balances quality and cost; matches the enrichment service.
-CLAUDE_MODEL = "claude-sonnet-4-5"
+CLAUDE_MODEL = "claude-opus-4-5"
 
 # Maximum number of tasks Claude is asked to produce per call.
 TASKS_PER_REPO = 6
@@ -184,18 +184,20 @@ def _call_claude(prompt: str) -> Optional[list[dict]]:
         return None
 
     import anthropic
-    client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     try:
         message = client.messages.create(
             model=CLAUDE_MODEL,
-            max_tokens=2000,
+            max_tokens=2048,
             messages=[{"role": "user", "content": prompt}],
         )
     except Exception as e:
         logger.error(
-            "ai_task_generator: error calling Claude",
-            extra={"error": str(e)},
+            "ai_task_generator: error calling Claude — %s: %s",
+            type(e).__name__,
+            str(e),
+            exc_info=True,
         )
         return None
 
